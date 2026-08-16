@@ -163,20 +163,22 @@ const History = () => {
                       <span className="font-mono">{item.riskScore}/100</span>
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Release:</span>
-                      <span className="font-mono">{item.uploadName || 'N/A'}</span>
+                      <span className="font-medium">Findings:</span>
+                      <span className="font-mono">{item.findings.length}</span>
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Files:</span>
-                      <span className="font-mono">{item.fileCount || 'N/A'}</span>
+                      <span className="font-medium">Decision:</span>
+                      <span className={`font-mono 
+                        ${item.riskLevel === "LOW" ? "text-success" : ""}
+                        ${item.riskLevel === "MEDIUM" ? "text-warning" : ""}
+                        ${item.riskLevel === "HIGH" || item.riskLevel === "CRITICAL" ? "text-destructive" : ""}
+                      `}>
+                        {item.releaseDecision}
+                      </span>
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Size:</span>
-                      <span className="font-mono">{item.uploadSize ? formatFileSize(item.uploadSize) : 'N/A'}</span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Languages:</span>
-                      <span className="font-mono">{item.languagesDetected?.join(', ') || item.language || 'N/A'}</span>
+                      <span className="font-medium">Language:</span>
+                      <span className="font-mono">{item.language}</span>
                     </div>
                   </div>
                   
@@ -208,18 +210,8 @@ const History = () => {
           </Card>
         </div>
       </div>
-    );
+    </div>
   );
 };
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
 
 export default History;
