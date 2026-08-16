@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea, Label } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { ChevronDown, Code } from "lucide-react";
 import { DemoScenario } from "@/data/demoScenarios";
 
@@ -73,7 +74,7 @@ const CodeInputCard = ({
             {scenarios.map((scenario) => (
               <Button
                 key={scenario.id}
-                variant={selectedScenario.id === scenario.id ? "default" : "outline"}
+                variant={selectedScenario.id === scenario.id? "default" : "outline"}
                 onClick={() => onScenarioSelect(scenario)}
                 className="text-sm px-3 py-1.5"
               >
@@ -99,9 +100,9 @@ const CodeInputCard = ({
         </Button>
         <Button
           onClick={onAnalyze}
-          disabled={isAnalyzing || !code.trim()}
+          disabled={isAnalyzing ||!code.trim()}
         >
-          {isAnalyzing ? "Analyzing..." : "Analyze Release"}
+          {isAnalyzing? "Analyzing..." : "Analyze Release"}
         </Button>
       </CardFooter>
     </Card>
