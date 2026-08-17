@@ -19,6 +19,16 @@ import {
   type ReleaseData,
   type ReleaseFile,
 } from "@/utils/fileComparison";
+import { 
+  FileCode, 
+  FileArchive, 
+  File, 
+  ChevronRight, 
+  Layers, 
+  Clock, 
+  FileText,
+  ArrowRight
+} from "lucide-react";
 
 // File type detection
 function getFileType(filename: string): string {
@@ -38,7 +48,7 @@ function getFileType(filename: string): string {
     'rb': 'Ruby',
     'html': 'HTML',
     'css': 'CSS',
-    'sql': 'SQL'
+    'ql': 'SQL'
   };
   return typeMap[ext] || 'Unknown';
 }
@@ -58,7 +68,7 @@ interface UploadedFile {
   type: string;
   size: string;
   language: string;
-  status: 'ready' | 'error' | 'processing';
+  status: 'eady' | 'error' | 'processing';
   error?: string;
   file?: File;
 }
@@ -87,7 +97,7 @@ const Analyze = () => {
   const [zipInfo, setZipInfo] = useState<ZipInfo | null>(null);
   const [previousRelease, setPreviousRelease] = useState<UploadedFile | ZipInfo | null>(null);
   const [currentRelease, setCurrentRelease] = useState<UploadedFile | ZipInfo | null>(null);
-  const [compareStatus, setCompareStatus] = useState<{ message: string; type: 'success' } | null>(null);
+  const [compareStatus, setCompareStatus] = useState<{ message: string; type: 'uccess' } | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
 
@@ -106,16 +116,16 @@ const Analyze = () => {
           const type = getFileType(name);
           const size = getFileSize(file.size);
           const language = detectLanguage(name);
-          resolve({ name, type, size, language, status: 'ready', file });
+          resolve({ name, type, size, language, status: 'eady', file });
         };
         reader.onerror = () => {
           resolve({ name: file.name, type: getFileType(file.name), size: 'Unknown', language: 'Unknown', status: 'error', error: 'Failed to read file', file });
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(file.size > 0? file : new Blob());
       });
     });
     const results = await Promise.all(filePromises);
-    setUploadedFiles(prev => [...prev, ...results]);
+    setUploadedFiles(prev => [...prev,...results]);
   };
 
   // Handle ZIP file
@@ -144,7 +154,7 @@ const Analyze = () => {
       showError("Please enter some code to analyze");
       return;
     }
-    setIsAnalyzing(true);
+    setIsAnalyzing(true)
     setTimeout(() => {
       const matchedScenario = demoScenarios.find(s => s.id === selectedScenario.id);
       if (matchedScenario) {
@@ -152,8 +162,8 @@ const Analyze = () => {
         showSuccess("Analysis complete!");
       } else {
         const complexity = Math.min(90, Math.max(10, code.length / 10));
-        const impact = Math.min(90, Math.max(20, code.includes("payment") || code.includes("auth") ? 70 : 40));
-        const reachability = Math.min(90, Math.max(20, code.includes("public") || code.includes("export") ? 80 : 30));
+        const impact = Math.min(90, Math.max(20, code.includes("payment") || code.includes("auth")? 70 : 40));
+        const reachability = Math.min(90, Math.max(20, code.includes("public") || code.includes("export")? 80 : 30));
         const testCoverage = Math.min(90, Math.max(10, 100 - complexity));
         const overallScore = Math.round((complexity + impact + reachability + (100 - testCoverage)) / 4);
         let riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
@@ -183,7 +193,7 @@ const Analyze = () => {
           findings: [
             {
               id: 1,
-              severity: riskLevel === "LOW" ? "LOW" : riskLevel === "MEDIUM" ? "MEDIUM" : "HIGH",
+              severity: riskLevel === "LOW"? "LOW" : riskLevel === "MEDIUM"? "MEDIUM" : "HIGH",
               file: "main." + language.toLowerCase(),
               problem: "Custom code analysis - review highlighted areas",
               whyItMatters: "Ensure changes align with intended functionality",
@@ -208,7 +218,7 @@ const Analyze = () => {
     const historyItem = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
-      ...analysisResult
+      ..analysisResult
     };
     const history = JSON.parse(localStorage.getItem("releaseGuardHistory") || "[]");
     history.push(historyItem);
@@ -276,14 +286,14 @@ const Analyze = () => {
   };
 
   const handleCompare = async () => {
-    if (!previousRelease && !currentRelease) {
+    if (!previousRelease &&!currentRelease) {
       showError("Please select both a Previous Release and a Current Release");
       setCompareStatus(null);
       setComparisonResult(null);
       return;
     } else if (!previousRelease) {
       showError("Please select a Previous Release");
-      setCompareStatus(null);
+      setCompareStatus(null;
       setComparisonResult(null);
       return;
     } else if (!currentRelease) {
@@ -301,7 +311,7 @@ const Analyze = () => {
       setComparisonResult(result);
       setCompareStatus({
         message: "Comparison complete",
-        type: 'success'
+        type: 'uccess'
       });
     } catch (error) {
       showError("Failed to compare releases");
@@ -312,7 +322,7 @@ const Analyze = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-20">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
         <div className="flex-1 lg:w-1/2">
           <CodeInputCard
@@ -328,91 +338,150 @@ const Analyze = () => {
             isAnalyzing={isAnalyzing}
           />
         </div>
-        <div className="flex-1 lg:w-1/2 space-y-4">
+        <div className="flex-1 lg:w-1/2 space-y-6">
           {/* Upload Section */}
           <UploadSection onFileSelect={handleFileSelect} onZipSelect={handleZipSelect} />
 
-          {/* Previous Release Panel */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-muted-foreground mb-4">Previous Release</h3>
-            <Select
-              value={previousRelease ? getReleaseLabel(previousRelease) : undefined}
-              onValueChange={(value) => {
-                const option = getReleaseOptions().find(opt => opt.label === value);
-                if (option) {
-                  setPreviousRelease(option.value);
-                }
-              }}
-            >
-              <SelectTrigger className="w-full mb-4">
-                <SelectValue placeholder="Select a release" />
-              </SelectTrigger>
-              <SelectContent>
-                {getReleaseOptions().map((option) => (
-                  <SelectItem
-                    key={option.label}
-                    value={option.label}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Current Release Panel */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-muted-foreground mb-4">Current Release</h3>
-            <Select
-              value={currentRelease ? getReleaseLabel(currentRelease) : undefined}
-              onValueChange={(value) => {
-                const option = getReleaseOptions().find(opt => opt.label === value);
-                if (option) {
-                  setCurrentRelease(option.value);
-                }
-              }}
-            >
-              <SelectTrigger className="w-full mb-4">
-                <SelectValue placeholder="Select a release" />
-              </SelectTrigger>
-              <SelectContent>
-                {getReleaseOptions().map((option) => (
-                  <SelectItem
-                    key={option.label}
-                    value={option.label}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Compare Button and Status */}
-          <div className="flex flex-col items-center">
-            <Button
-              onClick={handleCompare}
-              className="w-full max-w-xs"
-              disabled={isComparing}
-            >
-              {isComparing ? "Comparing..." : "Compare Releases"}
-            </Button>
-            {compareStatus && compareStatus.type === 'success' && (
-              <div className="mt-4 text-center">
-                <p className="text-success">{compareStatus.message}</p>
-                <div className="mt-2 text-sm space-y-1">
-                  <div>Previous: {getReleaseLabel(previousRelease!)}</div>
-                  <div>Current: {getReleaseLabel(currentRelease!)}</div>
-                </div>
+          {/* Release Selection Section */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Previous Release Card */}
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-muted to-muted/50 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                <Card className="relative h-full border-2 border-muted/50">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center space-x-2 text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span className="text-xs font-semibold uppercase tracking-wider">Previous Release</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-muted rounded-lg">
+                        <File className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {previousRelease? getReleaseLabel(previousRelease) : "No release selected"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {previousRelease? `${previousRelease.totalFiles || 0} files • ${previousRelease.size}` : "Select a file to view details"}
+                        </p>
+                      </div>
+                    </div>
+                    <Select
+                      value={previousRelease? getReleaseLabel(previousRelease) : undefined}
+                      onValueChange={(value) => {
+                        const option = getReleaseOptions().find(opt => opt.label === value);
+                        if (option) {
+                          setPreviousRelease(option.value);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full bg-muted/30">
+                        <SelectValue placeholder="Select previous release" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getReleaseOptions().map((option) => (
+                          <SelectItem
+                            key={option.label}
+                            value={option.label}
+                          >
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </CardContent>
+                </Card>
               </div>
-            )}
+
+              {/* Current Release Card */}
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-primary/5 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                <Card className="relative h-full border-2 border-primary/20">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center space-x-2 text-primary">
+                      <Layers className="h-4 w-4" />
+                      <span className="text-xs font-semibold uppercase tracking-wider">Current Release</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <FileCode className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {currentRelease? getReleaseLabel(currentRelease) : "No release selected"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {currentRelease? `${currentRelease.totalFiles || 0} files • ${currentRelease.size}` : "Select a file to view details"}
+                        </p>
+                      </div>
+                    </div>
+                    <Select
+                      value={currentRelease? getReleaseLabel(currentRelease) : undefined}
+                      onValueChange={(value) => {
+                        const option = getReleaseOptions().find(opt => opt.label === value);
+                        if (option) {
+                          setCurrentRelease(option.value);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full bg-muted/30">
+                        <SelectValue placeholder="Select current release" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getReleaseOptions().map((option) => (
+                          <SelectItem
+                            key={option.label}
+                            value={option.label}
+                          >
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center pt-4">
+              <Button
+                onClick={handleCompare}
+                className="w-full max-w-md py-6 text-lg shadow-lg shadow-primary/20 group"
+                disabled={isComparing ||!previousRelease ||!currentRelease}
+              >
+                {isComparing? (
+                  <span className="flex items-center">
+                    <span className="animate-spin mr-2">◌</span> Comparing...
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    Compare Releases <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </span>
+                )}
+              </Button>
+              {compareStatus && compareStatus.type === 'uccess' && (
+                <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <p className="text-emerald-600 font-medium flex items-center">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Comparison complete
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* File Comparison Results */}
       {comparisonResult && (
-        <FileComparison result={comparisonResult} />
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <FileComparison result={comparisonResult} />
+        </div>
       )}
     </div>
   );
