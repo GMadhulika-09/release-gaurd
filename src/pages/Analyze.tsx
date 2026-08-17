@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { showSuccess, showError } from "@/utils/toast";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import demoScenarios, { DemoScenario } from "@/data/demoScenarios";
 import CodeInputCard from "@/components/CodeInputCard";
@@ -21,12 +21,9 @@ import {
 } from "@/utils/fileComparison";
 import { 
   FileCode, 
-  FileArchive, 
   File, 
-  ChevronRight, 
   Layers, 
   Clock, 
-  FileText,
   ArrowRight,
   CheckCircle
 } from "lucide-react";
@@ -91,7 +88,6 @@ const Analyze = () => {
   const [selectedScenario, setSelectedScenario] = useState<DemoScenario>(demoScenarios[0]);
   const [analysisResult, setAnalysisResult] = useState<DemoScenario | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const { toast } = useToast();
 
   // Upload state
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -238,6 +234,7 @@ const Analyze = () => {
     setCurrentRelease(null);
     setCompareStatus(null);
     setComparisonResult(null);
+    setAnalysisResult(null);
   };
 
   const getReleaseLabel = (item: UploadedFile | ZipInfo) => {
@@ -467,6 +464,18 @@ const Analyze = () => {
           </div>
         </div>
       </div>
+
+      {/* Analysis Results */}
+      {analysisResult && (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <AnalysisResultsCard result={analysisResult} onSaveToHistory={saveToHistory} />
+          <ReleaseDecisionCard result={analysisResult} />
+          <FindingsCard findings={analysisResult.findings} />
+          <div className="md:col-span-2 lg:col-span-3">
+            <RecommendedTestsCard tests={analysisResult.recommendedTests} />
+          </div>
+        </div>
+      )}
 
       {/* File Comparison Results */}
       {comparisonResult && (

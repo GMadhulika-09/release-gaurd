@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { 
   Card, 
   CardContent, 
-  CardFooter, 
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -13,17 +13,13 @@ import {
   Trash2, 
   RefreshCw, 
   Clock, 
-  ShieldCheck, 
-  AlertTriangle, 
-  AlertCircle 
+  ShieldCheck
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { showSuccess, showError } from "@/utils/toast";
+import { showSuccess } from "@/utils/toast";
 
 const History = () => {
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
     const loadHistory = () => {
@@ -32,7 +28,7 @@ const History = () => {
         const saved = localStorage.getItem("releaseGuardHistory");
         const parsed = saved ? JSON.parse(saved) : [];
         // Sort by timestamp descending (newest first)
-        parsed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        parsed.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         setHistory(parsed);
       } catch (e) {
         console.error("Failed to load history:", e);
@@ -53,7 +49,7 @@ const History = () => {
     }
   };
 
-  const retryAnalysis = (item) => {
+  const retryAnalysis = (item: any) => {
     // Navigate to analyze page with this item's data
     // For simplicity, we'll just show a toast indicating the action
     showSuccess(`Would navigate to analyze with: ${item.name}`);
@@ -81,7 +77,7 @@ const History = () => {
           variant="default"
           asChild
         >
-          <a href="/analyze">Analyze First Release</a>
+          <Link to="/analyze">Analyze First Release</Link>
         </Button>
       </div>
     );
@@ -106,11 +102,7 @@ const History = () => {
                 <div className="flex flex-wrap gap-2">
                   <Button 
                     variant="outline"
-                    onClick={() => {
-                      setHistory([]);
-                      localStorage.removeItem("releaseGuardHistory");
-                      showSuccess("History cleared");
-                    }}
+                    onClick={clearHistory}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Clear All
@@ -121,7 +113,7 @@ const History = () => {
                       // Refresh history
                       const saved = localStorage.getItem("releaseGuardHistory");
                       const parsed = saved ? JSON.parse(saved) : [];
-                      parsed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                      parsed.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
                       setHistory(parsed);
                       showSuccess("History refreshed");
                     }}
@@ -132,7 +124,7 @@ const History = () => {
                 </div>
               </div>
               
-              {history.map(item => (
+              {history.map((item: any) => (
                 <div key={item.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
@@ -195,7 +187,7 @@ const History = () => {
                       size="icon"
                       onClick={() => {
                         // Remove item from history
-                        const updated = history.filter(h => h.id !== item.id);
+                        const updated = history.filter((h: any) => h.id !== item.id);
                         setHistory(updated);
                         localStorage.setItem("releaseGuardHistory", JSON.stringify(updated));
                         showSuccess("Analysis removed from history");

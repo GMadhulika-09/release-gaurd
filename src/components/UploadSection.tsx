@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
 
 interface UploadSectionProps {
   onFileSelect: (files: File[]) => void;
