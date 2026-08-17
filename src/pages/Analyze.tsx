@@ -97,7 +97,7 @@ const Analyze = () => {
   const [zipInfo, setZipInfo] = useState<ZipInfo | null>(null);
   const [previousRelease, setPreviousRelease] = useState<UploadedFile | ZipInfo | null>(null);
   const [currentRelease, setCurrentRelease] = useState<UploadedFile | ZipInfo | null>(null);
-  const [compareStatus, setCompareStatus] = useState<{ message: string; type: 'uccess' } | null>(null);
+  const [compareStatus, setCompareStatus] = useState<{ message: string; type: 'success' } | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
 
@@ -311,7 +311,7 @@ const Analyze = () => {
       setComparisonResult(result);
       setCompareStatus({
         message: "Comparison complete",
-        type: 'uccess'
+        type: 'success'
       });
     } catch (error) {
       showError("Failed to compare releases");
@@ -452,7 +452,7 @@ const Analyze = () => {
               <Button
                 onClick={handleCompare}
                 className="w-full max-w-md py-6 text-lg shadow-lg shadow-primary/20 group"
-                disabled={isComparing ||!previousRelease ||!currentRelease}
+                disabled={isComparing || !previousRelease || !currentRelease}
               >
                 {isComparing? (
                   <span className="flex items-center">
@@ -464,7 +464,7 @@ const Analyze = () => {
                   </span>
                 )}
               </Button>
-              {compareStatus && compareStatus.type === 'uccess' && (
+              {compareStatus && compareStatus.type === 'success' && (
                 <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <p className="text-emerald-600 font-medium flex items-center">
                     <CheckCircle className="h-4 w-4 mr-2" />
