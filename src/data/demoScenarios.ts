@@ -29,6 +29,23 @@ export interface DemoScenario {
   findings: Finding[];
   recommendedTests: RecommendedTest[];
   releaseDecision: string;
+  // Blast radius data
+  blastRadius: {
+    level: "LOW" | "MEDIUM" | "HIGH";
+    affectedFiles: number;
+    estimatedDependencies: number;
+    highImpactComponents: number;
+    criticalPaths: number;
+    potentiallyAffected: string[];
+    changedComponent: string;
+  };
+  // Dependency data for visualization
+  dependencyData: {
+    changedComponent: string;
+    callers: string[];
+    highImpactCallers: string[];
+    criticalPaths: string[];
+  };
 }
 
 const demoScenarios: DemoScenario[] = [
@@ -76,7 +93,24 @@ const Button = ({ children, onClick }) => {
         description: "Ensure button styling remains consistent across browsers"
       }
     ],
-    releaseDecision: "SAFE TO RELEASE"
+    releaseDecision: "SAFE TO RELEASE",
+    // Blast radius data for low-risk UI scenario
+    blastRadius: {
+      level: "LOW",
+      affectedFiles: 1,
+      estimatedDependencies: 2,
+      highImpactComponents: 0,
+      criticalPaths: 0,
+      potentiallyAffected: ["UI components"],
+      changedComponent: "Button.tsx"
+    },
+    // Dependency data for visualization
+    dependencyData: {
+      changedComponent: "Button.tsx",
+      callers: ["UI components", "Header"],
+      highImpactCallers: [],
+      criticalPaths: []
+    }
   },
   {
     id: "medium",
@@ -157,7 +191,24 @@ export const validateResetToken = async (
         description: "Attempt brute force attacks to verify rate limiting effectiveness"
       }
     ],
-    releaseDecision: "REVIEW RECOMMENDED"
+    releaseDecision: "REVIEW RECOMMENDED",
+    // Blast radius data for medium-risk auth scenario
+    blastRadius: {
+      level: "MEDIUM",
+      affectedFiles: 1,
+      estimatedDependencies: 8,
+      highImpactComponents: 2,
+      criticalPaths: 1,
+      potentiallyAffected: ["Login", "User Profile", "Session Management"],
+      changedComponent: "auth.ts"
+    },
+    // Dependency data for visualization
+    dependencyData: {
+      changedComponent: "auth.ts",
+      callers: ["Login", "User Profile", "Session Management", "API Routes", "Middleware", "Token Service", "Email Service", "Analytics"],
+      highImpactCallers: ["Login", "Session Management"],
+      criticalPaths: ["Session Management"]
+    }
   },
   {
     id: "high",
@@ -236,7 +287,7 @@ public class PaymentService {
         potentialImpact: "System-wide outage during gateway issues"
       },
       {
-        id: 3,
+        id: "LOW",
         severity: "LOW",
         file: "PaymentService.java",
         problem: "Missing idempotency key for payment requests",
@@ -262,7 +313,24 @@ public class PaymentService {
         description: "Attempt adversarial attacks on ML fraud detection model"
       }
     ],
-    releaseDecision: "REVIEW REQUIRED"
+    releaseDecision: "REVIEW REQUIRED",
+    // Blast radius data for high-risk payment scenario
+    blastRadius: {
+      level: "HIGH",
+      affectedFiles: 1,
+      estimatedDependencies: 14,
+      highImpactComponents: 3,
+      criticalPaths: 2,
+      potentiallyAffected: ["Checkout", "Subscription", "Refund", "Order History", "User Dashboard"],
+      changedComponent: "PaymentService.java"
+    },
+    // Dependency data for visualization
+    dependencyData: {
+      changedComponent: "PaymentService.java",
+      callers: ["Checkout", "Subscription", "Refund", "Order History", "User Dashboard", "API Gateway", "Notification Service", "Analytics", "Reporting", "Admin Panel", "Email Service", "Audit Log", "Inventory Service"],
+      highImpactCallers: ["Checkout", "Subscription", "Refund"],
+      criticalPaths: ["Checkout", "Refund"]
+    }
   }
 ];
 

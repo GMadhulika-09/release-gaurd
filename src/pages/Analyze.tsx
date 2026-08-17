@@ -268,7 +268,24 @@ const Analyze = () => {
             { type: "Unit Test", description: "Test core functionality with various inputs" },
             { type: "Integration Test", description: "Test interaction with dependent systems" }
           ],
-          releaseDecision: releaseDecisionMap[riskLevel]
+          releaseDecision: releaseDecisionMap[riskLevel],
+          // Add blast radius data for generic scenario
+          blastRadius: {
+            level: riskLevel === "HIGH" ? "HIGH" : riskLevel === "MEDIUM" ? "MEDIUM" : "LOW",
+            affectedFiles: 1,
+            estimatedDependencies: riskLevel === "HIGH" ? 14 : riskLevel === "MEDIUM" ? 8 : 2,
+            highImpactComponents: riskLevel === "HIGH" ? 3 : riskLevel === "MEDIUM" ? 2 : 0,
+            criticalPaths: riskLevel === "HIGH" ? 2 : riskLevel === "MEDIUM" ? 1 : 0,
+            potentiallyAffected: riskLevel === "HIGH" ? ["Checkout", "Subscription"] : riskLevel === "MEDIUM" ? ["Login", "User Profile"] : ["UI components"],
+            changedComponent: code?.includes("payment") || code?.includes("auth") ? "CustomComponent" : "CustomCode"
+          },
+          // Add dependency data for visualization
+          dependencyData: {
+            changedComponent: code?.includes("payment") || code?.includes("auth") ? "CustomComponent" : "CustomCode",
+            callers: riskLevel === "HIGH" ? ["Checkout", "Subscription", "API"] : riskLevel === "MEDIUM" ? ["Login", "User"] : ["UI"],
+            highImpactCallers: riskLevel === "HIGH" ? ["Checkout", "Subscription"] : riskLevel === "MEDIUM" ? ["Login"] : [],
+            criticalPaths: riskLevel === "HIGH" ? ["Checkout", "Refund"] : riskLevel === "MEDIUM" ? ["Login"] : []
+          }
         };
         setAnalysisResult(genericResult);
         // Save analysis if a release is selected
@@ -316,9 +333,9 @@ const Analyze = () => {
     setAnalysisResult(null);
     setPreviousAnalysis(null);
     setChangedFiles([]);
-    setAddedFiles([]);
-    setDeletedFiles([]);
-    setModifiedFiles([]);
+    setAddedFiles[];
+    setDeletedFiles[];
+    setModifiedFiles[];
     setTestFileCount(0);
     setCodeFileCount(0);
     setHasTestFiles(false);
@@ -533,7 +550,7 @@ const Analyze = () => {
                           >
                             {option.label}
                           </SelectItem>
-                        ))}
+                        ))
                       </SelectContent>
                     </Select>
                   </CardContent>
@@ -584,7 +601,7 @@ const Analyze = () => {
                           >
                             {option.label}
                           </SelectItem>
-                        ))}
+                        ))
                       </SelectContent>
                     </Select>
                   </CardContent>

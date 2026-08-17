@@ -5,6 +5,7 @@ import { DemoScenario, Finding } from "@/data/demoScenarios";
 import { showSuccess } from "@/utils/toast";
 import RiskIntelligenceCard from "@/components/RiskIntelligenceCard";
 import { calculateRiskScore, RiskScoreResult } from "@/utils/riskScoring";
+import BlastRadius from "@/components/BlastRadius";
 
 interface AnalysisResultsCardProps {
   result: DemoScenario;
@@ -72,6 +73,29 @@ const AnalysisResultsCard = ({
       })
     : null;
 
+  // Generate blast radius explanation
+  const getBlastRadiusExplanation = (): string => {
+    const { blastRadius } = result;
+    
+    if (blastRadius.level === "HIGH") {
+      return `This change has a high potential blast radius because the modified ${blastRadius.changedComponent} is used by multiple business-critical flows.`;
+    } else if (blastRadius.level === "MEDIUM") {
+      return `This change has a moderate blast radius with some downstream dependencies that could be affected.`;
+    } else {
+      return `The changed component appears isolated and has limited downstream impact.`;
+    }
+  };
+
+  // Generate dependency visualization data from demo scenario
+  const getDependencyData = (): {
+    changedComponent: string;
+    callers: string[];
+    highImpactCallers: string[];
+    criticalPaths: string[];
+  } => {
+    return result.dependencyData;
+  };
+
   return (
     <Card className="h-full">
       <CardHeader>
@@ -134,6 +158,13 @@ const AnalysisResultsCard = ({
           View in History
         </Button>
       </CardFooter>
+      
+      {/* Blast Radius Section - Added */}
+      <BlastRadius
+        blastRadius={result.blastRadius}
+        dependencyData={getDependencyData()}
+        explanation={getBlastRadiusExplanation()}
+      />
     </Card>
   );
 };
