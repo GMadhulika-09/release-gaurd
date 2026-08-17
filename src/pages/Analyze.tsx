@@ -218,7 +218,7 @@ const Analyze = () => {
     const historyItem = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
-      ..analysisResult
+      ...analysisResult
     };
     const history = JSON.parse(localStorage.getItem("releaseGuardHistory") || "[]");
     history.push(historyItem);
@@ -293,7 +293,7 @@ const Analyze = () => {
       return;
     } else if (!previousRelease) {
       showError("Please select a Previous Release");
-      setCompareStatus(null;
+      setCompareStatus(null);
       setComparisonResult(null);
       return;
     } else if (!currentRelease) {
