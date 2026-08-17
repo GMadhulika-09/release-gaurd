@@ -138,7 +138,7 @@ const Analyze = () => {
       const modified = comparisonResult.changes.filter(c => c.status === 'Modified').map(c => c.fileName);
       const allChanged = [...added, ...deleted, ...modified];
       const tests = allChanged.filter(f => /test|spec/i.test(f));
-      const code = allChanged.filter(f => !/test|spec/i.test(f));
+      const code =he = allChanged.filter(f => !/test|spec/i.test(f));
       
       setChangedFiles(allChanged);
       setAddedFiles(added);
@@ -285,6 +285,33 @@ const Analyze = () => {
             callers: riskLevel === "HIGH" ? ["Checkout", "Subscription", "API"] : riskLevel === "MEDIUM" ? ["Login", "User"] : ["UI"],
             highImpactCallers: riskLevel === "HIGH" ? ["Checkout", "Subscription"] : riskLevel === "MEDIUM" ? ["Login"] : [],
             criticalPaths: riskLevel === "HIGH" ? ["Checkout", "Refund"] : riskLevel === "MEDIUM" ? ["Login"] : []
+          },
+          // Add test coverage gap data for generic scenario
+          testCoverage: {
+            status: riskLevel === "HIGH" ? "GAP DETECTED" : riskLevel === "MEDIUM" ? "PARTIAL" : "GOOD",
+            changedComponents: 1,
+            relevantTests: riskLevel === "HIGH" ? 2 : riskLevel === "MEDIUM" ? 2 : 3,
+            componentsWithTests: riskLevel === "HIGH" ? 1 : riskLevel === "MEDIUM" ? 1 : 1,
+            componentsWithoutTests: riskLevel === "HIGH" ? 1 : riskLevel === "MEDIUM" ? 1 : 0,
+            gaps: riskLevel === "HIGH" ? [
+              {
+                component: "CustomComponent",
+                severity: "HIGH",
+                status: "GAP DETECTED",
+                missing: "Payment failure",
+                why: "This change affects a high-impact payment path without directly detected test coverage for payment failure scenarios.",
+                suggestedTestType: "Integration Test"
+              }
+            ] : riskLevel === "MEDIUM" ? [
+              {
+                component: "CustomComponent",
+                severity: "MEDIUM",
+                status: "PARTIAL",
+                missing: "Invalid authentication flow",
+                why: "This change affects authentication without directly detected test coverage for invalid token scenarios.",
+                suggestedTestType: "Unit Test"
+              }
+            ] : []
           }
         };
         setAnalysisResult(genericResult);
