@@ -98,7 +98,7 @@ const Analyze = () => {
   const [zipInfo, setZipInfo] = useState<ZipInfo | null>(null);
   const [previousRelease, setPreviousRelease] = useState<UploadedFile | ZipInfo | null>(null);
   const [currentRelease, setCurrentRelease] = useState<UploadedFile | ZipInfo | null>(null);
-  const [compareStatus, setCompareStatus] = useState<{ message: string; type: 'uccess' } | null>(null);
+  const [compareStatus, setCompareStatus] = useState<{ message: string; type: 'success' } | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
 
@@ -338,7 +338,7 @@ const Analyze = () => {
     const historyItem = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
-      ..analysisResult
+      ...analysisResult
     };
     const history = JSON.parse(localStorage.getItem("releaseGuardHistory") || "[]");
     history.push(historyItem);
@@ -418,7 +418,7 @@ const Analyze = () => {
     if (!previousRelease ||!currentRelease) {
       showError("Please select both a Previous Release and a Current Release");
       setCompareStatus(null);
-      setComparisonResult(null;
+      setComparisonResult(null);
       return;
     }
 
@@ -430,7 +430,7 @@ const Analyze = () => {
       setComparisonResult(result);
       setCompareStatus({
         message: "Comparison complete",
-        type: 'uccess'
+        type: 'success'
       });
     } catch (error) {
       showError("Failed to compare releases");
@@ -449,7 +449,7 @@ const Analyze = () => {
     // Calculate risk scores for the comparison
     const addedFiles = comparisonResult.changes.filter(c => c.status === 'Added');
     const deletedFiles = comparisonResult.changes.filter(c => c.status === 'Deleted');
-    const highRiskKeywords = ['auth', 'payment', 'ecurity', 'admin', 'config'];
+    const highRiskKeywords = ['auth', 'payment', 'security', 'admin', 'config'];
 
     const getFileRisk = (fileName: string) => {
       const base = 2;
@@ -652,7 +652,7 @@ const Analyze = () => {
                   </span>
                 )}
               </Button>
-              {compareStatus && compareStatus.type === 'uccess' && (
+              {compareStatus && compareStatus.type === 'success' && (
                 <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <p className="text-emerald-600 font-medium flex items-center">
                     <CheckCircle className="h-4 w-4 mr-2" />
