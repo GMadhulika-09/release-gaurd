@@ -20,10 +20,6 @@ import {
 } from "lucide-react";
 import type { ComparisonResult } from "@/utils/fileComparison";
 
-interface FileComparisonProps {
-  result: ComparisonResult;
-}
-
 const statusConfig: Record<
   string,
   { color: string; icon: typeof FilePlus; bg: string }
@@ -62,6 +58,87 @@ const FileComparison = ({ result }: FileComparisonProps) => {
   const hasUnavailableContent = changes.some(
     (c) =>!c.contentComparisonAvailable
   );
+
+  // Risk Evolution calculation
+  const addedFiles = changes.filter(c => c.status === 'Added');
+  const deletedFiles = changes.filter(c => c.status === 'Deleted');
+  const highRiskKeywords = ['auth', 'payment', 'security', 'admin', 'config'];
+
+  const getFileRisk = (fileName: string) => {
+    const base = 2;
+    const isHighRisk = highRiskKeywords.some(keyword => 
+      fileName.toLowerCase().includes(keyword));
+    const typeAdj = isHighRisk ? 5 : 0;
+    return base + typeAdj;
+  };
+
+  const riskFromAdded = addedFiles.reduce((sum, file) => sum + getFileRisk(file.fileName), 0);
+  const riskFromDeleted = deletedFiles.reduce((sum, file) => sum + getFileRisk(file.fileName), 0);
+  let riskChange = riskFromAdded - riskFromDeleted;
+
+  // Clamp riskChange to [-50, 50] to avoid extreme values
+  riskChange = Math.max(-50, Math.min(50, riskChange));
+
+  const previousRisk = 50 - riskChange / 2;
+  const currentRisk  = 50 + riskChange / 2;
+
+  // Clamp risk scores to [0, 100]
+  const clampedPreviousRisk = Math.max(0, Math.min(100, previousRisk));
+  const clampedCurrentRisk  = Math.max(0, Math.min(100, currentRisk));
+
+  // Helper functions for risk levels and colors
+  const getRiskLevel = (score: number) => {
+    if (score <= 30) return 'low';
+    if (score <= 70) return 'medium';
+    if (score <= 85) return 'high';
+    return 'critical';
+  };
+
+  const getRiskColor = (score: number) => {
+    const level = getRiskLevel(score);
+    switch (level) {
+      case 'low': return 'text-success';
+      case 'medium': return 'text-warning';
+      case 'high': 
+      case 'critical': return 'text-destructive';
+      default: return 'text-foreground';
+    }
+  };
+
+  const getReleaseDecision = (score: number) => {
+    if (score <= 30) return 'SAFE TO RELEASE';
+    if (score <= 70) return 'REVIEW RECOMMENDED';
+    if (score <= 85) return 'REVIEW REQUIRED';
+    return 'HIGH RISK — RELEASE BLOCKED';
+  };
+
+  const getRiskChangeExplanation = () => {
+    if (riskChange > 0) {
+      const addedCount = addedFiles.length;
+      const deletedCount = deletedFiles.length;
+      let explanation = `Risk increased because ${addedCount} file${addedCount === 1 ? '' : 's'} were added and ${deletedCount} file${deletedCount === 1 ? '' : 's'} were deleted.`;
+      const highRiskAdded = addedFiles.filter(f => 
+        highRiskKeywords.some(k => f.fileName.toLowerCase().includes(k))
+      );
+      if (highRiskAdded.length > 0) {
+        explanation += ` High-risk files added: ${highRiskAdded.map(f => f.fileName).slice(0, 2).join(', ')}${highRiskAdded.length > 2 ? ' and more' : ''}.`;
+      }
+      return explanation;
+    } else if (riskChange < 0) {
+      const addedCount = addedFiles.length;
+      const deletedCount = deletedFiles.length;
+      let explanation = `Risk decreased because ${deletedCount} file${deletedCount === 1 ? '' : 's'} were deleted and ${addedCount} file${addedCount === 1 ? '' : 's'} were added.`;
+      const highRiskDeleted = deletedFiles.filter(f => 
+        highRiskKeywords.some(k => f.fileName.toLowerCase().includes(k))
+      );
+      if (highRiskDeleted.length > 0) {
+        explanation += ` High-risk files deleted: ${highRiskDeleted.map(f => f.fileName).slice(0, 2).join(', ')}${highRiskDeleted.length > 2 ? ' and more' : ''}.`;
+      }
+      return explanation;
+    } else {
+      return "Risk remained approximately the same because the detected changes have limited impact.";
+    }
+  };
 
   return (
     <div className="space-y-6 w-full max-w-6xl mx-auto">
@@ -188,6 +265,49 @@ const FileComparison = ({ result }: FileComparisonProps) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Risk Evolution Section */}
+      <div className="mt-6">
+        <h3 className="text-lg font-medium text-muted-foreground">Risk Evolution</h3>
+        <div className="mt-4 flex flex-col space-x-6 sm:flex-row sm:space-x-0 sm:space-x-6">
+          {/* Previous Risk */}
+          <div className="flex flex-col items-center">
+            <p className="text-sm text-muted-foreground">Previous Risk</p>
+            <p className={`text-2xl font-bold ${getRiskColor(clampedPreviousRisk)}`}>
+              {Math.round(clampedPreviousRisk)} / 100
+            </p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {getRiskLevel(clampedPreviousRisk)}
+            </p>
+          </div>
+          {/* Risk Change */}
+          <div className="flex flex-col items-center">
+            <p className="text-sm text-muted-foreground">Risk Change</p>
+            <p className={`text-2xl font-bold ${riskChange >= 0 ? 'text-success' : 'text-destructive'}`}>
+              {riskChange >= 0 ? '+' : ''}{Math.round(riskChange)}
+            </p>
+          </div>
+          {/* Current Risk */}
+          <div className="flex flex-col items-center">
+            <p className="text-sm text-muted-foreground">Current Risk</p>
+            <p className={`text-2xl font-bold ${getRiskColor(clampedCurrentRisk)}`}>
+              {Math.round(clampedCurrentRisk)} / 100
+            </p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {getRiskLevel(clampedCurrentRisk)}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 text-center">
+          <p className="text-sm text-muted-foreground">{getRiskChangeExplanation()}</p>
+        </div>
+        <div className="mt-4">
+          <h3 className="text-lg font-medium text-muted-foreground">Release Status</h3>
+          <p className={`text-sm font-medium ${getRiskColor(clampedCurrentRisk)}`}>
+            {getReleaseDecision(clampedCurrentRisk)}
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
