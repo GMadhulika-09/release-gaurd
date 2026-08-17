@@ -11,6 +11,8 @@ import RecommendedTestsCard from "@/components/RecommendedTestsCard";
 import ReleaseDecisionCard from "@/components/ReleaseDecisionCard";
 import UploadSection from "@/components/UploadSection";
 import FileComparison from "@/components/FileComparison";
+import PreviousAnalysisContext from "@/components/PreviousAnalysisContext";
+import NoPreviousAnalysis from "@/components/NoPreviousAnalysis";
 import {
   compareReleases,
   extractZipInfo,
@@ -19,6 +21,8 @@ import {
   type ReleaseData,
   type ReleaseFile,
 } from "@/utils/fileComparison";
+import { saveAnalysis, getAnalysisByReleaseName } from "@/utils/analysisStorage";
+import { saveComparisonToHistory } from "@/utils/comparisonHistory";
 import { 
   FileCode, 
   File, 
@@ -98,10 +102,24 @@ const Analyze = () => {
   const [isComparing, setIsComparing] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
 
+  // New state for previous analysis context
+  const [previousAnalysis, setPreviousAnalysis] = useState<any>(null);
+
   useEffect(() => {
     setCode(selectedScenario.code);
     setLanguage(selectedScenario.language);
   }, [selectedScenario]);
+
+  // Load previous analysis when previous release changes
+  useEffect(() => {
+    if (previousRelease) {
+      const releaseName = previousRelease.name;
+      const analysis = getAnalysisByReleaseName(releaseName);
+      setPreviousAnalysis(analysis);
+    } else {
+      setPreviousAnalysis(null);
+    }
+  }, [previousRelease]);
 
   // Handle file selection
   const handleFileSelect = async (files: File[]) => {
@@ -156,6 +174,19 @@ const Analyze = () => {
       const matchedScenario = demoScenarios.find(s => s.id === selectedScenario.id);
       if (matchedScenario) {
         setAnalysisResult(matchedScenario);
+        // Save analysis if a release is selected (we'll add a release selector in CodeInputCard)
+        // For now, we'll save with the current release name if available
+        const releaseName = currentRelease?.name || previousRelease?.name;
+        if (releaseName) {
+          saveAnalysis({
+            releaseName,
+            riskScore: matchedScenario.riskScore,
+            riskLevel: matchedScenario.riskLevel,
+            findingsCount: matchedScenario.findings.length,
+            recommendedTestsCount: matchedScenario.recommendedTests.length,
+            releaseDecision: matchedScenario.releaseDecision,
+          });
+        }
         showSuccess("Analysis complete!");
       } else {
         const complexity = Math.min(90, Math.max(10, code.length / 10));
@@ -204,6 +235,18 @@ const Analyze = () => {
           releaseDecision: releaseDecisionMap[riskLevel]
         };
         setAnalysisResult(genericResult);
+        // Save analysis if a release is selected
+        const releaseName = currentRelease?.name || previousRelease?.name;
+        if (releaseName) {
+          saveAnalysis({
+            releaseName,
+            riskScore: genericResult.riskScore,
+            riskLevel: genericResult.riskLevel,
+            findingsCount: genericResult.findings.length,
+            recommendedTestsCount: genericResult.recommendedTests.length,
+            releaseDecision: genericResult.releaseDecision,
+          });
+        }
         showSuccess("Analysis complete!");
       }
       setIsAnalyzing(false);
@@ -235,6 +278,7 @@ const Analyze = () => {
     setCompareStatus(null);
     setComparisonResult(null);
     setAnalysisResult(null);
+    setPreviousAnalysis(null);
   };
 
   const getReleaseLabel = (item: UploadedFile | ZipInfo) => {
@@ -309,6 +353,60 @@ const Analyze = () => {
     }
   };
 
+  const handleSaveComparisonToHistory = () => {
+    if (!comparisonResult || !previousRelease || !currentRelease) {
+      showError("No comparison to save");
+      return;
+    }
+
+    // Calculate risk scores for the comparison
+    const addedFiles = comparisonResult.changes.filter(c => c.status === 'Added');
+    const deletedFiles = comparisonResult.changes.filter(c => c.status === 'Deleted');
+    const highRiskKeywords = ['auth', 'payment', 'security', 'admin', 'config'];
+
+    const getFileRisk = (fileName: string) => {
+      const base = 2;
+      const isHighRisk = highRiskKeywords.some(keyword => 
+        fileName.toLowerCase().includes(keyword));
+      const typeAdj = isHighRisk ? 5 : 0;
+      return base + typeAdj;
+    };
+
+    const riskFromAdded = addedFiles.reduce((sum, file) => sum + getFileRisk(file.fileName), 0);
+    const riskFromDeleted = deletedFiles.reduce((sum, file) => sum + getFileRisk(file.fileName), 0);
+    let riskChange = riskFromAdded - riskFromDeleted;
+    riskChange = Math.max(-50, Math.min(50, riskChange));
+
+    const previousRisk = 50 - riskChange / 2;
+    const currentRisk = 50 + riskChange / 2;
+    const clampedCurrentRisk = Math.max(0, Math.min(100, currentRisk));
+
+    const getReleaseStatus = (score: number) => {
+      if (score <= 30) return 'SAFE TO RELEASE';
+      if (score <= 70) return 'REVIEW RECOMMENDED';
+      if (score <= 85) return 'REVIEW REQUIRED';
+      return 'HIGH RISK — RELEASE BLOCKED';
+    };
+
+    const entry = {
+      previousReleaseName: previousRelease.name,
+      currentReleaseName: currentRelease.name,
+      previousRiskScore: Math.round(previousRisk),
+      currentRiskScore: Math.round(clampedCurrentRisk),
+      riskChange: Math.round(riskChange),
+      filesAdded: comparisonResult.summary.added,
+      filesModified: comparisonResult.summary.modified,
+      filesDeleted: comparisonResult.summary.deleted,
+      releaseStatus: getReleaseStatus(clampedCurrentRisk),
+    };
+
+    if (saveComparisonToHistory(entry)) {
+      showSuccess("Comparison saved to history");
+    } else {
+      showError("Failed to save comparison to history");
+    }
+  };
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
@@ -329,6 +427,21 @@ const Analyze = () => {
         <div className="flex-1 lg:w-1/2 space-y-6">
           {/* Upload Section */}
           <UploadSection onFileSelect={handleFileSelect} onZipSelect={handleZipSelect} />
+
+          {/* Previous Analysis Context */}
+          <div>
+            {previousAnalysis ? (
+              <PreviousAnalysisContext
+                riskScore={previousAnalysis.riskScore}
+                riskLevel={previousAnalysis.riskLevel}
+                findingsCount={previousAnalysis.findingsCount}
+                recommendedTestsCount={previousAnalysis.recommendedTestsCount}
+                releaseDecision={previousAnalysis.releaseDecision}
+              />
+            ) : (
+              <NoPreviousAnalysis />
+            )}
+          </div>
 
           {/* Release Selection Section */}
           <div className="space-y-4">
@@ -481,6 +594,15 @@ const Analyze = () => {
       {comparisonResult && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <FileComparison result={comparisonResult} />
+          <div className="mt-6 flex justify-center">
+            <Button
+              onClick={handleSaveComparisonToHistory}
+              variant="default"
+              className="px-6 py-3"
+            >
+              Save Comparison to History
+            </Button>
+          </div>
         </div>
       )}
     </div>
