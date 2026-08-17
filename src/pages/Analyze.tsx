@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { showSuccess, showError } from "@/utils/toast";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import demoScenarios, { DemoScenario } from "@/data/demoScenarios";
 import CodeInputCard from "@/components/CodeInputCard";
 import AnalysisResultsCard from "@/components/AnalysisResultsCard";
@@ -8,7 +10,15 @@ import FindingsCard from "@/components/FindingsCard";
 import RecommendedTestsCard from "@/components/RecommendedTestsCard";
 import ReleaseDecisionCard from "@/components/ReleaseDecisionCard";
 import UploadSection from "@/components/UploadSection";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import FileComparison from "@/components/FileComparison";
+import {
+  compareReleases,
+  extractZipInfo,
+  readFileContent,
+  type ComparisonResult,
+  type ReleaseData,
+  type ReleaseFile,
+} from "@/utils/fileComparison";
 
 // File type detection
 function getFileType(filename: string): string {
@@ -50,6 +60,7 @@ interface UploadedFile {
   language: string;
   status: 'ready' | 'error' | 'processing';
   error?: string;
+  file?: File;
 }
 
 interface ZipInfo {
@@ -60,6 +71,7 @@ interface ZipInfo {
   testFiles: number;
   configFiles: number;
   languages: string[];
+  file?: File;
 }
 
 const Analyze = () => {
@@ -75,7 +87,9 @@ const Analyze = () => {
   const [zipInfo, setZipInfo] = useState<ZipInfo | null>(null);
   const [previousRelease, setPreviousRelease] = useState<UploadedFile | ZipInfo | null>(null);
   const [currentRelease, setCurrentRelease] = useState<UploadedFile | ZipInfo | null>(null);
-  const [compareStatus, setCompareStatus] = useState<{message: string, type: 'success'} | null>(null);
+  const [compareStatus, setCompareStatus] = useState<{ message: string; type: 'success' } | null>(null);
+  const [isComparing, setIsComparing] = useState(false);
+  const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
 
   useEffect(() => {
     setCode(selectedScenario.code);
@@ -92,10 +106,10 @@ const Analyze = () => {
           const type = getFileType(name);
           const size = getFileSize(file.size);
           const language = detectLanguage(name);
-          resolve({ name, type, size, language, status: 'ready' });
+          resolve({ name, type, size, language, status: 'ready', file });
         };
         reader.onerror = () => {
-          resolve({ name: file.name, type: getFileType(file.name), size: 'Unknown', language: 'Unknown', status: 'error', error: 'Failed to read file' });
+          resolve({ name: file.name, type: getFileType(file.name), size: 'Unknown', language: 'Unknown', status: 'error', error: 'Failed to read file', file });
         };
         reader.readAsDataURL(file);
       });
@@ -106,27 +120,23 @@ const Analyze = () => {
 
   // Handle ZIP file
   const handleZipSelect = async (file: File) => {
-    return new Promise<ZipInfo | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const name = file.name.replace('.zip', '');
-        const size = getFileSize(file.size);
-        const mockZipInfo: ZipInfo = {
-          name,
-          size,
-          totalFiles: Math.floor(Math.random() * 50) + 10,
-          codeFiles: Math.floor(Math.random() * 40) + 5,
-          testFiles: Math.floor(Math.random() * 15) + 2,
-          configFiles: Math.floor(Math.random() * 10) + 1,
-          languages: ['Python', 'JavaScript', 'HTML']
-        };
-        resolve(mockZipInfo);
+    try {
+      const result = await extractZipInfo(file);
+      const info: ZipInfo = {
+        name: file.name.replace(/\.zip$/i, ''),
+        size: getFileSize(file.size),
+        totalFiles: result.totalFiles,
+        codeFiles: result.codeFiles,
+        testFiles: result.testFiles,
+        configFiles: result.configFiles,
+        languages: result.languages,
+        file,
       };
-      reader.onerror = () => {
-        resolve(null);
-      };
-      reader.readAsArrayBuffer(file);
-    });
+      setZipInfo(info);
+      showSuccess(`ZIP file loaded: ${file.name}`);
+    } catch (error) {
+      showError("Failed to read ZIP file. Please ensure it's a valid ZIP archive.");
+    }
   };
 
   const handleAnalyze = () => {
@@ -213,6 +223,10 @@ const Analyze = () => {
     setLanguage(defaultScenario.language);
     setUploadedFiles([]);
     setZipInfo(null);
+    setPreviousRelease(null);
+    setCurrentRelease(null);
+    setCompareStatus(null);
+    setComparisonResult(null);
   };
 
   const getReleaseLabel = (item: UploadedFile | ZipInfo) => {
@@ -220,8 +234,8 @@ const Analyze = () => {
   };
 
   const getReleaseOptions = () => {
-    const options: {label: string, value: UploadedFile | ZipInfo}[] = [];
-    uploadedFiles.forEach((file, index) => {
+    const options: { label: string; value: UploadedFile | ZipInfo }[] = [];
+    uploadedFiles.forEach((file) => {
       options.push({
         label: `${file.name} (${file.size})`,
         value: file
@@ -236,21 +250,64 @@ const Analyze = () => {
     return options;
   };
 
-  const handleCompare = () => {
+  const extractReleaseData = async (
+    release: UploadedFile | ZipInfo
+  ): Promise<ReleaseData> => {
+    const files = new Map<string, ReleaseFile>();
+
+    if ('totalFiles' in release) {
+      // It's a ZipInfo
+      if (release.file) {
+        const result = await extractZipInfo(release.file);
+        return { name: release.name, files: result.files };
+      }
+      files.set(release.name, { name: release.name, content: '', size: 0 });
+      return { name: release.name, files };
+    } else {
+      // It's an UploadedFile
+      if (release.file) {
+        const fileData = await readFileContent(release.file);
+        files.set(fileData.name, fileData);
+      } else {
+        files.set(release.name, { name: release.name, content: '', size: 0 });
+      }
+      return { name: release.name, files };
+    }
+  };
+
+  const handleCompare = async () => {
     if (!previousRelease && !currentRelease) {
       showError("Please select both a Previous Release and a Current Release");
       setCompareStatus(null);
+      setComparisonResult(null);
+      return;
     } else if (!previousRelease) {
       showError("Please select a Previous Release");
       setCompareStatus(null);
+      setComparisonResult(null);
+      return;
     } else if (!currentRelease) {
       showError("Please select a Current Release");
       setCompareStatus(null);
-    } else {
+      setComparisonResult(null);
+      return;
+    }
+
+    setIsComparing(true);
+    try {
+      const prevData = await extractReleaseData(previousRelease);
+      const currData = await extractReleaseData(currentRelease);
+      const result = compareReleases(prevData, currData);
+      setComparisonResult(result);
       setCompareStatus({
-        message: "Ready to compare",
+        message: "Comparison complete",
         type: 'success'
       });
+    } catch (error) {
+      showError("Failed to compare releases");
+      setComparisonResult(null);
+    } finally {
+      setIsComparing(false);
     }
   };
 
@@ -278,23 +335,22 @@ const Analyze = () => {
           {/* Previous Release Panel */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold text-muted-foreground mb-4">Previous Release</h3>
-            <Select 
-              value={previousRelease ? getReleaseLabel(previousRelease) : null}
+            <Select
+              value={previousRelease ? getReleaseLabel(previousRelease) : undefined}
               onValueChange={(value) => {
                 const option = getReleaseOptions().find(opt => opt.label === value);
                 if (option) {
                   setPreviousRelease(option.value);
                 }
               }}
-              className="w-full mb-4"
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full mb-4">
                 <SelectValue placeholder="Select a release" />
               </SelectTrigger>
               <SelectContent>
                 {getReleaseOptions().map((option) => (
-                  <SelectItem 
-                    key={option.label} 
+                  <SelectItem
+                    key={option.label}
                     value={option.label}
                   >
                     {option.label}
@@ -307,23 +363,22 @@ const Analyze = () => {
           {/* Current Release Panel */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold text-muted-foreground mb-4">Current Release</h3>
-            <Select 
-              value={currentRelease ? getReleaseLabel(currentRelease) : null}
+            <Select
+              value={currentRelease ? getReleaseLabel(currentRelease) : undefined}
               onValueChange={(value) => {
                 const option = getReleaseOptions().find(opt => opt.label === value);
                 if (option) {
                   setCurrentRelease(option.value);
                 }
               }}
-              className="w-full mb-4"
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full mb-4">
                 <SelectValue placeholder="Select a release" />
               </SelectTrigger>
               <SelectContent>
                 {getReleaseOptions().map((option) => (
-                  <SelectItem 
-                    key={option.label} 
+                  <SelectItem
+                    key={option.label}
                     value={option.label}
                   >
                     {option.label}
@@ -335,11 +390,12 @@ const Analyze = () => {
 
           {/* Compare Button and Status */}
           <div className="flex flex-col items-center">
-            <Button 
+            <Button
               onClick={handleCompare}
               className="w-full max-w-xs"
+              disabled={isComparing}
             >
-              Compare Releases
+              {isComparing ? "Comparing..." : "Compare Releases"}
             </Button>
             {compareStatus && compareStatus.type === 'success' && (
               <div className="mt-4 text-center">
@@ -353,6 +409,11 @@ const Analyze = () => {
           </div>
         </div>
       </div>
+
+      {/* File Comparison Results */}
+      {comparisonResult && (
+        <FileComparison result={comparisonResult} />
+      )}
     </div>
   );
 };
