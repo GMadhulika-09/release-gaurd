@@ -22,6 +22,10 @@ import type { ComparisonResult } from "@/utils/fileComparison";
 import RiskIntelligenceCard from "@/components/RiskIntelligenceCard";
 import { calculateRiskScore } from "@/utils/riskScoring";
 
+interface FileComparisonProps {
+  result: ComparisonResult;
+}
+
 const statusConfig: Record<
   string,
   { color: string; icon: typeof FilePlus; bg: string }
