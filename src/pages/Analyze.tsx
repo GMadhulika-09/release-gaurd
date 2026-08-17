@@ -98,7 +98,7 @@ const Analyze = () => {
   const [zipInfo, setZipInfo] = useState<ZipInfo | null>(null);
   const [previousRelease, setPreviousRelease] = useState<UploadedFile | ZipInfo | null>(null);
   const [currentRelease, setCurrentRelease] = useState<UploadedFile | ZipInfo | null>(null);
-  const [compareStatus, setCompareStatus] = useState<{ message: string; type: 'success' } | null>(null);
+  const [compareStatus, setCompareStatus] = useState<{ message: string; type: 'uccess' } | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
 
@@ -136,9 +136,9 @@ const Analyze = () => {
       const added = comparisonResult.changes.filter(c => c.status === 'Added').map(c => c.fileName);
       const deleted = comparisonResult.changes.filter(c => c.status === 'Deleted').map(c => c.fileName);
       const modified = comparisonResult.changes.filter(c => c.status === 'Modified').map(c => c.fileName);
-      const allChanged = [...added, ...deleted, ...modified];
+      const allChanged = [...added,...deleted,...modified];
       const tests = allChanged.filter(f => /test|spec/i.test(f));
-      const code = allChanged.filter(f => !/test|spec/i.test(f));
+      const code = allChanged.filter(f =>!/test|spec/i.test(f));
       
       setChangedFiles(allChanged);
       setAddedFiles(added);
@@ -271,29 +271,29 @@ const Analyze = () => {
           releaseDecision: releaseDecisionMap[riskLevel],
           // Add blast radius data for generic scenario
           blastRadius: {
-            level: riskLevel === "HIGH" ? "HIGH" : riskLevel === "MEDIUM" ? "MEDIUM" : "LOW",
+            level: riskLevel === "HIGH"? "HIGH" : riskLevel === "MEDIUM"? "MEDIUM" : "LOW",
             affectedFiles: 1,
-            estimatedDependencies: riskLevel === "HIGH" ? 14 : riskLevel === "MEDIUM" ? 8 : 2,
-            highImpactComponents: riskLevel === "HIGH" ? 3 : riskLevel === "MEDIUM" ? 2 : 0,
-            criticalPaths: riskLevel === "HIGH" ? 2 : riskLevel === "MEDIUM" ? 1 : 0,
-            potentiallyAffected: riskLevel === "HIGH" ? ["Checkout", "Subscription"] : riskLevel === "MEDIUM" ? ["Login", "User Profile"] : ["UI components"],
-            changedComponent: code?.includes("payment") || code?.includes("auth") ? "CustomComponent" : "CustomCode"
+            estimatedDependencies: riskLevel === "HIGH"? 14 : riskLevel === "MEDIUM"? 8 : 2,
+            highImpactComponents: riskLevel === "HIGH"? 3 : riskLevel === "MEDIUM"? 2 : 0,
+            criticalPaths: riskLevel === "HIGH"? 2 : riskLevel === "MEDIUM"? 1 : 0,
+            potentiallyAffected: riskLevel === "HIGH"? ["Checkout", "Subscription"] : riskLevel === "MEDIUM"? ["Login", "User Profile"] : ["UI components"],
+            changedComponent: code?.includes("payment") || code?.includes("auth")? "CustomComponent" : "CustomCode"
           },
           // Add dependency data for visualization
           dependencyData: {
-            changedComponent: code?.includes("payment") || code?.includes("auth") ? "CustomComponent" : "CustomCode",
-            callers: riskLevel === "HIGH" ? ["Checkout", "Subscription", "API"] : riskLevel === "MEDIUM" ? ["Login", "User"] : ["UI"],
-            highImpactCallers: riskLevel === "HIGH" ? ["Checkout", "Subscription"] : riskLevel === "MEDIUM" ? ["Login"] : [],
-            criticalPaths: riskLevel === "HIGH" ? ["Checkout", "Refund"] : riskLevel === "MEDIUM" ? ["Login"] : []
+            changedComponent: code?.includes("payment") || code?.includes("auth")? "CustomComponent" : "CustomCode",
+            callers: riskLevel === "HIGH"? ["Checkout", "Subscription", "API"] : riskLevel === "MEDIUM"? ["Login", "User"] : ["UI"],
+            highImpactCallers: riskLevel === "HIGH"? ["Checkout", "Subscription"] : riskLevel === "MEDIUM"? ["Login"] : [],
+            criticalPaths: riskLevel === "HIGH"? ["Checkout", "Refund"] : riskLevel === "MEDIUM"? ["Login"] : []
           },
           // Add test coverage gap data for generic scenario
           testCoverage: {
-            status: riskLevel === "HIGH" ? "GAP DETECTED" : riskLevel === "MEDIUM" ? "PARTIAL" : "GOOD",
+            status: riskLevel === "HIGH"? "GAP DETECTED" : riskLevel === "MEDIUM"? "PARTIAL" : "GOOD",
             changedComponents: 1,
-            relevantTests: riskLevel === "HIGH" ? 2 : riskLevel === "MEDIUM" ? 2 : 3,
-            componentsWithTests: riskLevel === "HIGH" ? 1 : riskLevel === "MEDIUM" ? 1 : 1,
-            componentsWithoutTests: riskLevel === "HIGH" ? 1 : riskLevel === "MEDIUM" ? 1 : 0,
-            gaps: riskLevel === "HIGH" ? [
+            relevantTests: riskLevel === "HIGH"? 2 : riskLevel === "MEDIUM"? 2 : 3,
+            componentsWithTests: riskLevel === "HIGH"? 1 : riskLevel === "MEDIUM"? 1 : 1,
+            componentsWithoutTests: riskLevel === "HIGH"? 1 : riskLevel === "MEDIUM"? 1 : 0,
+            gaps: riskLevel === "HIGH"? [
               {
                 component: "CustomComponent",
                 severity: "HIGH",
@@ -302,7 +302,7 @@ const Analyze = () => {
                 why: "This change affects a high-impact payment path without directly detected test coverage for payment failure scenarios.",
                 suggestedTestType: "Integration Test"
               }
-            ] : riskLevel === "MEDIUM" ? [
+            ] : riskLevel === "MEDIUM"? [
               {
                 component: "CustomComponent",
                 severity: "MEDIUM",
@@ -338,7 +338,7 @@ const Analyze = () => {
     const historyItem = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
-      ...analysisResult
+      ..analysisResult
     };
     const history = JSON.parse(localStorage.getItem("releaseGuardHistory") || "[]");
     history.push(historyItem);
@@ -415,10 +415,10 @@ const Analyze = () => {
   };
 
   const handleCompare = async () => {
-    if (!previousRelease || !currentRelease) {
+    if (!previousRelease ||!currentRelease) {
       showError("Please select both a Previous Release and a Current Release");
       setCompareStatus(null);
-      setComparisonResult(null);
+      setComparisonResult(null;
       return;
     }
 
@@ -430,7 +430,7 @@ const Analyze = () => {
       setComparisonResult(result);
       setCompareStatus({
         message: "Comparison complete",
-        type: 'success'
+        type: 'uccess'
       });
     } catch (error) {
       showError("Failed to compare releases");
@@ -441,7 +441,7 @@ const Analyze = () => {
   };
 
   const handleSaveComparisonToHistory = () => {
-    if (!comparisonResult || !previousRelease || !currentRelease) {
+    if (!comparisonResult ||!previousRelease ||!currentRelease) {
       showError("No comparison to save");
       return;
     }
@@ -449,13 +449,13 @@ const Analyze = () => {
     // Calculate risk scores for the comparison
     const addedFiles = comparisonResult.changes.filter(c => c.status === 'Added');
     const deletedFiles = comparisonResult.changes.filter(c => c.status === 'Deleted');
-    const highRiskKeywords = ['auth', 'payment', 'security', 'admin', 'config'];
+    const highRiskKeywords = ['auth', 'payment', 'ecurity', 'admin', 'config'];
 
     const getFileRisk = (fileName: string) => {
       const base = 2;
       const isHighRisk = highRiskKeywords.some(keyword => 
         fileName.toLowerCase().includes(keyword));
-      const typeAdj = isHighRisk ? 5 : 0;
+      const typeAdj = isHighRisk? 5 : 0;
       return base + typeAdj;
     };
 
@@ -517,7 +517,7 @@ const Analyze = () => {
 
           {/* Previous Analysis Context */}
           <div>
-            {previousAnalysis ? (
+            {previousAnalysis? (
               <PreviousAnalysisContext
                 riskScore={previousAnalysis.riskScore}
                 riskLevel={previousAnalysis.riskLevel}
@@ -640,7 +640,7 @@ const Analyze = () => {
               <Button
                 onClick={handleCompare}
                 className="w-full max-w-md py-6 text-lg shadow-lg shadow-primary/20 group"
-                disabled={isComparing || !previousRelease || !currentRelease}
+                disabled={isComparing ||!previousRelease ||!currentRelease}
               >
                 {isComparing? (
                   <span className="flex items-center">
@@ -652,7 +652,7 @@ const Analyze = () => {
                   </span>
                 )}
               </Button>
-              {compareStatus && compareStatus.type === 'success' && (
+              {compareStatus && compareStatus.type === 'uccess' && (
                 <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <p className="text-emerald-600 font-medium flex items-center">
                     <CheckCircle className="h-4 w-4 mr-2" />
