@@ -19,6 +19,8 @@ import {
   Info
 } from "lucide-react";
 import type { ComparisonResult } from "@/utils/fileComparison";
+import RiskIntelligenceCard from "@/components/RiskIntelligenceCard";
+import { calculateRiskScore } from "@/utils/riskScoring";
 
 const statusConfig: Record<
   string,
@@ -62,6 +64,8 @@ const FileComparison = ({ result }: FileComparisonProps) => {
   // Risk Evolution calculation
   const addedFiles = changes.filter(c => c.status === 'Added');
   const deletedFiles = changes.filter(c => c.status === 'Deleted');
+  const modifiedFiles = changes.filter(c => c.status === 'Modified');
+  const allChangedFiles = [...addedFiles, ...deletedFiles, ...modifiedFiles].map(f => f.fileName);
   const highRiskKeywords = ['auth', 'payment', 'security', 'admin', 'config'];
 
   const getFileRisk = (fileName: string) => {
@@ -85,6 +89,21 @@ const FileComparison = ({ result }: FileComparisonProps) => {
   // Clamp risk scores to [0, 100]
   const clampedPreviousRisk = Math.max(0, Math.min(100, previousRisk));
   const clampedCurrentRisk  = Math.max(0, Math.min(100, currentRisk));
+
+  // Calculate noise-aware risk score
+  const testFiles = changes.filter(c => /test|spec/i.test(c.fileName));
+  const codeFiles = changes.filter(c => !/test|spec/i.test(c.fileName));
+  
+  const riskScoreResult = calculateRiskScore({
+    changedFiles: allChangedFiles,
+    addedFiles: addedFiles.map(f => f.fileName),
+    deletedFiles: deletedFiles.map(f => f.fileName),
+    modifiedFiles: modifiedFiles.map(f => f.fileName),
+    testFileCount: testFiles.length,
+    codeFileCount: codeFiles.length,
+    hasTestFiles: testFiles.length > 0,
+    previousRiskScore: clampedPreviousRisk,
+  });
 
   // Helper functions for risk levels and colors
   const getRiskLevel = (score: number) => {
@@ -307,6 +326,16 @@ const FileComparison = ({ result }: FileComparisonProps) => {
             {getReleaseDecision(clampedCurrentRisk)}
           </p>
         </div>
+      </div>
+
+      {/* Risk Intelligence Card */}
+      <div className="mt-6">
+        <RiskIntelligenceCard
+          components={riskScoreResult.components}
+          overallScore={riskScoreResult.overall}
+          riskLevel={riskScoreResult.riskLevel}
+          explanation={riskScoreResult.explanation}
+        />
       </div>
     </div>
   );

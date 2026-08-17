@@ -3,13 +3,32 @@ import { Button } from "@/components/ui/button";
 import { ShieldCheck, AlertTriangle, AlertCircle, CheckCircle } from "lucide-react";
 import { DemoScenario, Finding } from "@/data/demoScenarios";
 import { showSuccess } from "@/utils/toast";
+import RiskIntelligenceCard from "@/components/RiskIntelligenceCard";
+import { calculateRiskScore, RiskScoreResult } from "@/utils/riskScoring";
 
 interface AnalysisResultsCardProps {
   result: DemoScenario;
   onSaveToHistory: () => void;
+  changedFiles?: string[];
+  addedFiles?: string[];
+  deletedFiles?: string[];
+  modifiedFiles?: string[];
+  testFileCount?: number;
+  codeFileCount?: number;
+  hasTestFiles?: boolean;
 }
 
-const AnalysisResultsCard = ({ result, onSaveToHistory }: AnalysisResultsCardProps) => {
+const AnalysisResultsCard = ({ 
+  result, 
+  onSaveToHistory,
+  changedFiles = [],
+  addedFiles = [],
+  deletedFiles = [],
+  modifiedFiles = [],
+  testFileCount = 0,
+  codeFileCount = 0,
+  hasTestFiles = false,
+}: AnalysisResultsCardProps) => {
   const getRiskColor = (level: string) => {
     switch (level) {
       case "LOW": return "text-success";
@@ -38,6 +57,20 @@ const AnalysisResultsCard = ({ result, onSaveToHistory }: AnalysisResultsCardPro
       default: return null;
     }
   };
+
+  // Calculate noise-aware risk score if we have file data
+  const riskScoreResult: RiskScoreResult | null = changedFiles.length > 0 
+    ? calculateRiskScore({
+        changedFiles,
+        addedFiles,
+        deletedFiles,
+        modifiedFiles,
+        testFileCount,
+        codeFileCount,
+        hasTestFiles,
+        previousRiskScore: result.riskScore,
+      })
+    : null;
 
   return (
     <Card className="h-full">

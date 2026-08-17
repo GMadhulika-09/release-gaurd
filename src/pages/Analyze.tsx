@@ -105,6 +105,15 @@ const Analyze = () => {
   // New state for previous analysis context
   const [previousAnalysis, setPreviousAnalysis] = useState<any>(null);
 
+  // State for file analysis data
+  const [changedFiles, setChangedFiles] = useState<string[]>([]);
+  const [addedFiles, setAddedFiles] = useState<string[]>([]);
+  const [deletedFiles, setDeletedFiles] = useState<string[]>([]);
+  const [modifiedFiles, setModifiedFiles] = useState<string[]>([]);
+  const [testFileCount, setTestFileCount] = useState(0);
+  const [codeFileCount, setCodeFileCount] = useState(0);
+  const [hasTestFiles, setHasTestFiles] = useState(false);
+
   useEffect(() => {
     setCode(selectedScenario.code);
     setLanguage(selectedScenario.language);
@@ -120,6 +129,34 @@ const Analyze = () => {
       setPreviousAnalysis(null);
     }
   }, [previousRelease]);
+
+  // Update file analysis data when comparison result changes
+  useEffect(() => {
+    if (comparisonResult) {
+      const added = comparisonResult.changes.filter(c => c.status === 'Added').map(c => c.fileName);
+      const deleted = comparisonResult.changes.filter(c => c.status === 'Deleted').map(c => c.fileName);
+      const modified = comparisonResult.changes.filter(c => c.status === 'Modified').map(c => c.fileName);
+      const allChanged = [...added, ...deleted, ...modified];
+      const tests = allChanged.filter(f => /test|spec/i.test(f));
+      const code = allChanged.filter(f => !/test|spec/i.test(f));
+      
+      setChangedFiles(allChanged);
+      setAddedFiles(added);
+      setDeletedFiles(deleted);
+      setModifiedFiles(modified);
+      setTestFileCount(tests.length);
+      setCodeFileCount(code.length);
+      setHasTestFiles(tests.length > 0);
+    } else {
+      setChangedFiles([]);
+      setAddedFiles([]);
+      setDeletedFiles([]);
+      setModifiedFiles([]);
+      setTestFileCount(0);
+      setCodeFileCount(0);
+      setHasTestFiles(false);
+    }
+  }, [comparisonResult]);
 
   // Handle file selection
   const handleFileSelect = async (files: File[]) => {
@@ -174,8 +211,7 @@ const Analyze = () => {
       const matchedScenario = demoScenarios.find(s => s.id === selectedScenario.id);
       if (matchedScenario) {
         setAnalysisResult(matchedScenario);
-        // Save analysis if a release is selected (we'll add a release selector in CodeInputCard)
-        // For now, we'll save with the current release name if available
+        // Save analysis if a release is selected
         const releaseName = currentRelease?.name || previousRelease?.name;
         if (releaseName) {
           saveAnalysis({
@@ -279,6 +315,13 @@ const Analyze = () => {
     setComparisonResult(null);
     setAnalysisResult(null);
     setPreviousAnalysis(null);
+    setChangedFiles([]);
+    setAddedFiles([]);
+    setDeletedFiles([]);
+    setModifiedFiles([]);
+    setTestFileCount(0);
+    setCodeFileCount(0);
+    setHasTestFiles(false);
   };
 
   const getReleaseLabel = (item: UploadedFile | ZipInfo) => {
@@ -581,7 +624,17 @@ const Analyze = () => {
       {/* Analysis Results */}
       {analysisResult && (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <AnalysisResultsCard result={analysisResult} onSaveToHistory={saveToHistory} />
+          <AnalysisResultsCard 
+            result={analysisResult} 
+            onSaveToHistory={saveToHistory}
+            changedFiles={changedFiles}
+            addedFiles={addedFiles}
+            deletedFiles={deletedFiles}
+            modifiedFiles={modifiedFiles}
+            testFileCount={testFileCount}
+            codeFileCount={codeFileCount}
+            hasTestFiles={hasTestFiles}
+          />
           <ReleaseDecisionCard result={analysisResult} />
           <FindingsCard findings={analysisResult.findings} />
           <div className="md:col-span-2 lg:col-span-3">
