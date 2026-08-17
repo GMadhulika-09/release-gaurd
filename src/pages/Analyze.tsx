@@ -138,7 +138,7 @@ const Analyze = () => {
       const modified = comparisonResult.changes.filter(c => c.status === 'Modified').map(c => c.fileName);
       const allChanged = [...added, ...deleted, ...modified];
       const tests = allChanged.filter(f => /test|spec/i.test(f));
-      const code =he = allChanged.filter(f => !/test|spec/i.test(f));
+      const code = allChanged.filter(f => !/test|spec/i.test(f));
       
       setChangedFiles(allChanged);
       setAddedFiles(added);
@@ -360,7 +360,7 @@ const Analyze = () => {
     setAnalysisResult(null);
     setPreviousAnalysis(null);
     setChangedFiles([]);
-    setAddedFiles[];
+    setAddedFiles([]);
     setDeletedFiles[];
     setModifiedFiles[];
     setTestFileCount(0);
