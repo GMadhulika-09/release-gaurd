@@ -27,7 +27,8 @@ import {
   Layers, 
   Clock, 
   FileText,
-  ArrowRight
+  ArrowRight,
+  CheckCircle
 } from "lucide-react";
 
 // File type detection
@@ -286,18 +287,8 @@ const Analyze = () => {
   };
 
   const handleCompare = async () => {
-    if (!previousRelease &&!currentRelease) {
+    if (!previousRelease || !currentRelease) {
       showError("Please select both a Previous Release and a Current Release");
-      setCompareStatus(null);
-      setComparisonResult(null);
-      return;
-    } else if (!previousRelease) {
-      showError("Please select a Previous Release");
-      setCompareStatus(null);
-      setComparisonResult(null);
-      return;
-    } else if (!currentRelease) {
-      showError("Please select a Current Release");
       setCompareStatus(null);
       setComparisonResult(null);
       return;
