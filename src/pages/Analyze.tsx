@@ -362,7 +362,7 @@ const Analyze = () => {
     setChangedFiles([]);
     setAddedFiles([]);
     setDeletedFiles([]);
-    setModifiedFiles([]);
+    setModifiedFiles[];
     setTestFileCount(0);
     setCodeFileCount(0);
     setHasTestFiles(false);
