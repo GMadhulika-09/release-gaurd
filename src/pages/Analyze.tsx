@@ -83,11 +83,11 @@ const Analyze = () => {
   }, [selectedScenario]);
 
   // Handle file selection
-  const handleFileSelect = (files: File[]) => {
-    setUploadedFiles(files.map(file => {
-      const reader = new FileReader();
+  const handleFileSelect = async (files: File[]) => {
+    const filePromises = files.map(file => {
       return new Promise<UploadedFile>((resolve) => {
-        reader.onload = (e) => {
+        const reader = new FileReader();
+        reader.onload = () => {
           const name = file.name;
           const type = getFileType(name);
           const size = getFileSize(file.size);
@@ -99,15 +99,16 @@ const Analyze = () => {
         };
         reader.readAsDataURL(file);
       });
-    }));
+    });
+    const results = await Promise.all(filePromises);
+    setUploadedFiles(prev => [...prev, ...results]);
   };
 
   // Handle ZIP file
-  const handleZipSelect = (file: File) => {
-    const reader = new FileReader();
-    return new Promise<ZipInfo>((resolve) => {
-      reader.onload = (e) => {
-        const arrayBuffer = e.target?.result as ArrayBuffer;
+  const handleZipSelect = async (file: File) => {
+    return new Promise<ZipInfo | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
         const name = file.name.replace('.zip', '');
         const size = getFileSize(file.size);
         const mockZipInfo: ZipInfo = {
