@@ -8,6 +8,7 @@ import FindingsCard from "@/components/FindingsCard";
 import RecommendedTestsCard from "@/components/RecommendedTestsCard";
 import ReleaseDecisionCard from "@/components/ReleaseDecisionCard";
 import UploadSection from "@/components/UploadSection";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // File type detection
 function getFileType(filename: string): string {
@@ -72,7 +73,9 @@ const Analyze = () => {
   // Upload state
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [zipInfo, setZipInfo] = useState<ZipInfo | null>(null);
-  const [previousRelease, setPreviousRelease] = useState<DemoScenario | null>(null);
+  const [previousRelease, setPreviousRelease] = useState<UploadedFile | ZipInfo | null>(null);
+  const [currentRelease, setCurrentRelease] = useState<UploadedFile | ZipInfo | null>(null);
+  const [compareStatus, setCompareStatus] = useState<{message: string, type: 'success'} | null>(null);
 
   useEffect(() => {
     setCode(selectedScenario.code);
@@ -211,6 +214,45 @@ const Analyze = () => {
     setZipInfo(null);
   };
 
+  const getReleaseLabel = (item: UploadedFile | ZipInfo) => {
+    return `${item.name} (${item.size})`;
+  };
+
+  const getReleaseOptions = () => {
+    const options: {label: string, value: UploadedFile | ZipInfo}[] = [];
+    uploadedFiles.forEach((file, index) => {
+      options.push({
+        label: `${file.name} (${file.size})`,
+        value: file
+      });
+    });
+    if (zipInfo) {
+      options.push({
+        label: `${zipInfo.name} (${zipInfo.size})`,
+        value: zipInfo
+      });
+    }
+    return options;
+  };
+
+  const handleCompare = () => {
+    if (!previousRelease && !currentRelease) {
+      showError("Please select both a Previous Release and a Current Release");
+      setCompareStatus(null);
+    } else if (!previousRelease) {
+      showError("Please select a Previous Release");
+      setCompareStatus(null);
+    } else if (!currentRelease) {
+      showError("Please select a Current Release");
+      setCompareStatus(null);
+    } else {
+      setCompareStatus({
+        message: "Ready to compare",
+        type: 'success'
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
@@ -232,66 +274,82 @@ const Analyze = () => {
           {/* Upload Section */}
           <UploadSection onFileSelect={handleFileSelect} onZipSelect={handleZipSelect} />
 
-          {/* Individual Files Display */}
-          {uploadedFiles.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-muted-foreground mb-4">Uploaded Files</h3>
-              <div className="space-y-3 max-h-40 overflow-y-auto">
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} className="p-3 bg-muted rounded">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm font-medium">{file.name}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">{file.type}</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm mt-1">
-                      <span>{file.size}</span>
-                      <span>{file.language}</span>
-                      <span className="text-success">{file.status}</span>
-                    </div>
-                  </div>
+          {/* Previous Release Panel */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-muted-foreground mb-4">Previous Release</h3>
+            <Select 
+              value={previousRelease ? getReleaseLabel(previousRelease) : null}
+              onValueChange={(value) => {
+                const option = getReleaseOptions().find(opt => opt.label === value);
+                if (option) {
+                  setPreviousRelease(option.value);
+                }
+              }}
+              className="w-full mb-4"
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a release" />
+              </SelectTrigger>
+              <SelectContent>
+                {getReleaseOptions().map((option) => (
+                  <SelectItem 
+                    key={option.label} 
+                    value={option.label}
+                  >
+                    {option.label}
+                  </SelectItem>
                 ))}
-              </div>
-            </div>
-          )}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {/* ZIP File Display */}
-          {zipInfo && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-muted-foreground mb-4">Project Upload</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p><strong>Project:</strong> {zipInfo.name}</p>
-                  <p><strong>Size:</strong> {zipInfo.size}</p>
-                  <p><strong>Files:</strong> {zipInfo.totalFiles}</p>
-                  <p><strong>Code files:</strong> {zipInfo.codeFiles}</p>
-                  <p><strong>Test files:</strong> {zipInfo.testFiles}</p>
-                  <p><strong>Config files:</strong> {zipInfo.configFiles}</p>
-                </div>
-                <div>
-                  <p><strong>Languages:</strong></p>
-                  {zipInfo.languages.map((lang, i) => (
-                    <div key={i} className="flex items-center space-x-2">
-                      <span className="w-3 h-3 rounded bg-primary"></span>
-                      <span>{lang}</span>
-                    </div>
-                  ))}
+          {/* Current Release Panel */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-muted-foreground mb-4">Current Release</h3>
+            <Select 
+              value={currentRelease ? getReleaseLabel(currentRelease) : null}
+              onValueChange={(value) => {
+                const option = getReleaseOptions().find(opt => opt.label === value);
+                if (option) {
+                  setCurrentRelease(option.value);
+                }
+              }}
+              className="w-full mb-4"
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a release" />
+              </SelectTrigger>
+              <SelectContent>
+                {getReleaseOptions().map((option) => (
+                  <SelectItem 
+                    key={option.label} 
+                    value={option.label}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Compare Button and Status */}
+          <div className="flex flex-col items-center">
+            <Button 
+              onClick={handleCompare}
+              className="w-full max-w-xs"
+            >
+              Compare Releases
+            </Button>
+            {compareStatus && compareStatus.type === 'success' && (
+              <div className="mt-4 text-center">
+                <p className="text-success">{compareStatus.message}</p>
+                <div className="mt-2 text-sm space-y-1">
+                  <div>Previous: {getReleaseLabel(previousRelease!)}</div>
+                  <div>Current: {getReleaseLabel(currentRelease!)}</div>
                 </div>
               </div>
-              <button onClick={() => setZipInfo(null)} className="mt-4 text-sm text-blue-600 hover:text-blue-800">
-                Remove ZIP
-              </button>
-            </div>
-          )}
-
-          {/* Analysis Results */}
-          {analysisResult && (
-            <>
-              <AnalysisResultsCard result={analysisResult} onSaveToHistory={saveToHistory} />
-              <FindingsCard findings={analysisResult.findings} />
-              <RecommendedTestsCard tests={analysisResult.recommendedTests} />
-              <ReleaseDecisionCard result={analysisResult} />
-            </>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
