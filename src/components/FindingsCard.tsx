@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 interface FixSuggestion {
   proposedFix: string;
   whyExplanation: string;
+  beforeCode: string;
 }
 
 const fixSuggestions: Record<string, FixSuggestion> = {
@@ -20,11 +21,16 @@ const Button = ({ children, onClick }) => {
       {children}
     </button>
   );
-};
-
-// Before: Submit
-// After: Save Changes`,
-    whyExplanation: "Changing the button text to 'Save Changes' makes it clear what action will occur when clicked."
+};`,
+    whyExplanation: "Changing the button text to 'Save Changes' makes it clear what action will occur when clicked.",
+    beforeCode: `// Button component with unclear action
+const Button = ({ children, onClick }) => {
+  return (
+    <button onClick={onClick} className="btn-primary">
+      Submit
+    </button>
+  );
+};`
   },
   "Missing rate limiting on token validation endpoint": {
     proposedFix: `// Add rate limiting middleware
@@ -36,7 +42,29 @@ const rateLimiter = rateLimit({
 app.post('/validate-token', rateLimiter, (req, res) => {
   // Validate token
 });`,
-    whyExplanation: "Rate limiting prevents brute force attacks by limiting the number of requests from a single IP."
+    whyExplanation: "Rate limiting prevents brute force attacks by limiting the number of requests from a single IP.",
+    beforeCode: `// Token validation endpoint without rate limiting
+app.post('/validate-token', (req, res) => {
+  const { token } = req.body;
+  
+  // Check if token exists in database
+  const storedToken = await db.tokens.findUnique({
+    where: { token }
+  });
+  
+  if (!storedToken) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  
+  // Check expiration
+  const isExpired = new Date() > new Date(storedToken.expiresAt);
+  if (isExpired) {
+    await db.tokens.delete({ where: { token } });
+    return res.status(401).json({ error: 'Token expired' });
+  }
+  
+  return res.json({ valid: true });
+});`
   },
   "New ML-based fraud detection lacks fallback to rule-based system": {
     proposedFix: `// Add fallback to rule-based system
@@ -51,7 +79,47 @@ try {
     return decline();
   }
 }`,
-    whyExplanation: "A fallback ensures that if the ML model fails, the system can still detect fraud using rules."
+    whyExplanation: "A fallback ensures that if the ML model fails, the system can still detect fraud using rules.",
+    beforeCode: `// Payment processing service without fallback
+@Service
+public class PaymentService {
+  
+  @Autowired
+  private PaymentGateway gateway;
+  
+  @Autowired
+  private FraudDetectionService fraudService;
+  
+  public PaymentResponse processPayment(PaymentRequest request) {
+    // Step 1: Validate request
+    if (!validateRequest(request)) {
+      throw new InvalidRequestException("Invalid payment request");
+    }
+    
+    // Step 2: Fraud check (NEW: added machine learning model)
+    FraudScore fraudScore = fraudService.analyzeWithMLModel(request);
+    
+    // Step 3: Check if fraud score exceeds threshold
+    if (fraudScore.getScore() > 0.8) {
+      logWarning("High fraud score detected: " + fraudScore.getScore());
+      return PaymentResponse.declined(FraudDeclinedReason.HIGH_RISK);
+    }
+    
+    // Step 4: Process payment
+    try {
+      PaymentResponse response = gateway.charge(request.getAmount(), request.getCardToken());
+      
+      // Step 5: Record transaction
+      transactionRepository.save(new Transaction(request, response));
+      
+      return response;
+    } catch (GatewayException e) {
+      // Step 6: Handle gateway errors
+      logError("Payment gateway failed: " + e.getMessage());
+      return PaymentResponse.declined(DeclinedReason.GATEWAY_ERROR);
+    }
+  }
+}` 
   }
 };
 
@@ -59,7 +127,9 @@ const getFixSuggestion = (finding: Finding): FixSuggestion => {
   return fixSuggestions[finding.problem] || {
     proposedFix: `// Review and fix the issue in ${finding.file}
 // This is a deterministic example based on the finding.`,
-    whyExplanation: `This fix addresses the ${finding.severity} severity issue.`
+    whyExplanation: `This fix addresses the ${finding.severity} severity issue.`,
+    beforeCode: `// Current code in ${finding.file}
+// This represents the existing implementation that needs improvement.`
   };
 };
 
@@ -72,6 +142,7 @@ const FindingItem = ({ finding }: FindingItemProps) => {
   const [fixState, setFixState] = useState({
     showFixControls: false,
     showProposedFix: false,
+    showBeforeAfterComparison: false,
     fixApproved: false,
     keepCurrentCode: false
   });
@@ -88,7 +159,7 @@ const FindingItem = ({ finding }: FindingItemProps) => {
   const toggleExplanation = () => {
     setIsExpanded(!isExpanded);
     if (!isExpanded) {
-      setFixState(prev => ({ ...prev, showFixControls: false, showProposedFix: false, fixApproved: false, keepCurrentCode: false }));
+      setFixState(prev => ({ ...prev, showFixControls: false, showProposedFix: false, showBeforeAfterComparison: false, fixApproved: false, keepCurrentCode: false }));
     }
   };
 
@@ -96,7 +167,8 @@ const FindingItem = ({ finding }: FindingItemProps) => {
     setFixState(prev => ({
       ...prev,
       showFixControls: false,
-      showProposedFix: true,
+      showProposedFix: false,
+      showBeforeAfterComparison: true,
       fixApproved: false,
       keepCurrentCode: false
     }));
@@ -107,6 +179,7 @@ const FindingItem = ({ finding }: FindingItemProps) => {
       ...prev,
       showFixControls: false,
       showProposedFix: false,
+      showBeforeAfterComparison: false,
       keepCurrentCode: true
     }));
     showSuccess("No changes made.");
@@ -116,6 +189,7 @@ const FindingItem = ({ finding }: FindingItemProps) => {
     setFixState(prev => ({
       ...prev,
       showProposedFix: false,
+      showBeforeAfterComparison: false,
       fixApproved: true
     }));
     showSuccess("Fix approved for review. No source files were modified.");
@@ -124,7 +198,8 @@ const FindingItem = ({ finding }: FindingItemProps) => {
   const handleCancelFix = () => {
     setFixState(prev => ({
       ...prev,
-      showProposedFix: false
+      showProposedFix: false,
+      showBeforeAfterComparison: false
     }));
   };
 
@@ -173,7 +248,7 @@ const FindingItem = ({ finding }: FindingItemProps) => {
 
           {/* Fix-on-Confirm Section */}
           <div className="pt-3 border-t border-muted">
-            {!fixState.showFixControls && !fixState.showProposedFix && !fixState.fixApproved && !fixState.keepCurrentCode && (
+            {!fixState.showFixControls && !fixState.showProposedFix && !fixState.showBeforeAfterComparison && !fixState.fixApproved && !fixState.keepCurrentCode && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Would you like to fix this finding?</p>
                 <div className="flex space-x-2">
@@ -209,20 +284,60 @@ const FindingItem = ({ finding }: FindingItemProps) => {
               </div>
             )}
 
-            {fixState.showProposedFix && (
-              <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <Code className="h-4 w-4" />
-                  <h4 className="text-sm font-medium">Proposed Fix</h4>
+            {fixState.showBeforeAfterComparison && (
+              <div className="space-y-4 p-3 bg-muted/30 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* BEFORE Section */}
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Code className="h-4 w-4 text-muted-foreground" />
+                      <h4 className="text-sm font-medium">Current Code</h4>
+                    </div>
+                    <div className="border rounded-lg bg-background">
+                      <div className="bg-muted/50 px-3 py-2 border-b rounded-t-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono text-muted-foreground">{finding.file}</span>
+                          <Badge variant="secondary" className="text-xs">BEFORE</Badge>
+                        </div>
+                      </div>
+                      <div className="p-3">
+                        <pre className="text-xs overflow-x-auto">
+                          <code>{suggestion.beforeCode}</code>
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AFTER Section */}
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Shield className="h-4 w-4 text-primary" />
+                      <h4 className="text-sm font-medium">Proposed Fix</h4>
+                    </div>
+                    <div className="border rounded-lg bg-background">
+                      <div className="bg-primary/10 px-3 py-2 border-b rounded-t-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono text-primary">{finding.file}</span>
+                          <Badge variant="default" className="text-xs">AFTER</Badge>
+                        </div>
+                      </div>
+                      <div className="p-3">
+                        <pre className="text-xs overflow-x-auto">
+                          <code>{suggestion.proposedFix}</code>
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <pre className="text-xs bg-background p-2 rounded border overflow-x-auto">
-                  <code>{suggestion.proposedFix}</code>
-                </pre>
-                <div>
-                  <h4 className="text-sm font-medium mb-1">Why this fixes the issue</h4>
+
+                {/* Why this change? */}
+                <div className="pt-3 border-t border-muted">
+                  <h4 className="text-sm font-medium mb-2">Why this change?</h4>
                   <p className="text-sm text-muted-foreground">{suggestion.whyExplanation}</p>
                 </div>
-                <div className="pt-2 border-t border-muted">
+
+                {/* Approval */}
+                <div className="pt-3 border-t border-muted">
                   <p className="text-sm font-medium mb-2">Developer approval</p>
                   <p className="text-sm text-muted-foreground mb-2">Apply this fix?</p>
                   <div className="flex space-x-2">
