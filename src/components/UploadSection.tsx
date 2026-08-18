@@ -29,11 +29,12 @@ const UploadSection = ({ onFileSelect, onZipSelect }: UploadSectionProps) => {
     e.preventDefault();
     const files = e.dataTransfer?.files;
     if (files && files.length > 0) {
-      const file = files[0];
-      if (isZipFile(file)) {
-        onZipSelect(file);
+      const fileArray = Array.from(files);
+      const firstFile = fileArray[0];
+      if (firstFile && isZipFile(firstFile)) {
+        onZipSelect(firstFile);
       } else {
-        onFileSelect(Array.from(files));
+        onFileSelect(fileArray);
       }
     }
     setDragOver(false);
@@ -42,11 +43,12 @@ const UploadSection = ({ onFileSelect, onZipSelect }: UploadSectionProps) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const file = files[0];
-      if (isZipFile(file)) {
-        onZipSelect(file);
+      const fileArray = Array.from(files);
+      const firstFile = fileArray[0];
+      if (firstFile && isZipFile(firstFile)) {
+        onZipSelect(firstFile);
       } else {
-        onFileSelect(Array.from(files));
+        onFileSelect(fileArray);
       }
     }
   };
