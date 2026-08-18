@@ -8,15 +8,22 @@ import {
   GitCompare,
   FileText,
   AlertCircle,
-  Info
+  Info,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 import type { ComparisonResult } from "@/utils/fileComparison";
 import RiskIntelligenceCard from "@/components/RiskIntelligenceCard";
 import { calculateRiskScore } from "@/utils/riskScoring";
-
-interface FileComparisonProps {
-  result: ComparisonResult;
-}
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 const statusConfig: Record<
   string,
@@ -54,47 +61,75 @@ function formatSize(bytes: number | null): string {
 const FileComparison = ({ result }: FileComparisonProps) => {
   const { changes, summary, hasDifferences } = result;
   const hasUnavailableContent = changes.some(
-    (c) =>!c.contentComparisonAvailable
+    (c) => !c.contentComparisonAvailable
   );
 
-  // Risk Evolution calculation
-  const addedFiles = changes.filter(c => c.status === 'Added');
-  const deletedFiles = changes.filter(c => c.status === 'Deleted');
-  const modifiedFiles = changes.filter(c => c.status === 'Modified');
-  const allChangedFiles = [...addedFiles, ...deletedFiles, ...modifiedFiles].map(f => f.fileName);
-  const highRiskKeywords = ['auth', 'payment', 'security', 'admin', 'config'];
+  // Calculate risk evolution metrics
+  const addedFiles = changes.filter((c) => c.status === "Added");
+  const deletedFiles = changes.filter((c) => c.status === "Deleted");
+  const modifiedFiles = changes.filter((c) => c.status === "Modified");
+  const allChangedFiles = [
+    ...addedFiles,
+    ...deletedFiles,
+    ...modifiedFiles,
+  ].map((f) => f.fileName);
+  const highRiskKeywords = [
+    "auth",
+    "payment",
+    "security",
+    "admin",
+    "config",
+  ];
 
   const getFileRisk = (fileName: string) => {
     const base = 2;
-    const isHighRisk = highRiskKeywords.some(keyword => 
-      fileName.toLowerCase().includes(keyword));
+    const isHighRisk = highRiskKeywords.some((keyword) =>
+      fileName.toLowerCase().includes(keyword)
+    );
     const typeAdj = isHighRisk ? 5 : 0;
     return base + typeAdj;
   };
 
-  const riskFromAdded = addedFiles.reduce((sum, file) => sum + getFileRisk(file.fileName), 0);
-  const riskFromDeleted = deletedFiles.reduce((sum, file) => sum + getFileRisk(file.fileName), 0);
+  const riskFromAdded = addedFiles.reduce(
+    (sum, file) => sum + getFileRisk(file.fileName),
+    0
+  );
+  const riskFromDeleted = deletedFiles.reduce(
+    (sum, file) => sum + getFileRisk(file.fileName),
+    0
+  );
   let riskChange = riskFromAdded - riskFromDeleted;
 
   // Clamp riskChange to [-50, 50] to avoid extreme values
   riskChange = Math.max(-50, Math.min(50, riskChange));
 
+  // Calculate previous and current risk scores
   const previousRisk = 50 - riskChange / 2;
-  const currentRisk  = 50 + riskChange / 2;
+  const currentRisk = 50 + riskChange / 2;
 
   // Clamp risk scores to [0, 100]
-  const clampedPreviousRisk = Math.max(0, Math.min(100, previousRisk));
-  const clampedCurrentRisk  = Math.max(0, Math.min(100, currentRisk));
+  const clampedPreviousRisk = Math.max(
+    0,
+    Math.min(100, previousRisk)
+  );
+  const clampedCurrentRisk = Math.max(
+    0,
+    Math.min(100, currentRisk)
+  );
 
   // Calculate noise-aware risk score
-  const testFiles = changes.filter(c => /test|spec/i.test(c.fileName));
-  const codeFiles = changes.filter(c => !/test|spec/i.test(c.fileName));
-  
+  const testFiles = changes.filter(
+    (c) => /test|spec/i.test(c.fileName)
+  );
+  const codeFiles = changes.filter(
+    (c) => !/test|spec/i.test(c.fileName)
+  );
+
   const riskScoreResult = calculateRiskScore({
     changedFiles: allChangedFiles,
-    addedFiles: addedFiles.map(f => f.fileName),
-    deletedFiles: deletedFiles.map(f => f.fileName),
-    modifiedFiles: modifiedFiles.map(f => f.fileName),
+    addedFiles: addedFiles.map((f) => f.fileName),
+    deletedFiles: deletedFiles.map((f) => f.fileName),
+    modifiedFiles: modifiedFiles.map((f) => f.fileName),
     testFileCount: testFiles.length,
     codeFileCount: codeFiles.length,
     hasTestFiles: testFiles.length > 0,
@@ -103,51 +138,73 @@ const FileComparison = ({ result }: FileComparisonProps) => {
 
   // Helper functions for risk levels and colors
   const getRiskLevel = (score: number) => {
-    if (score <= 30) return 'low';
-    if (score <= 70) return 'medium';
-    if (score <= 85) return 'high';
-    return 'critical';
+    if (score <= 30) return "low";
+    if (score <= 70) return "medium";
+    if (score <= 85) return "high";
+    return "critical";
   };
 
   const getRiskColor = (score: number) => {
     const level = getRiskLevel(score);
     switch (level) {
-      case 'low': return 'text-success';
-      case 'medium': return 'text-warning';
-      case 'high': 
-      case 'critical': return 'text-destructive';
-      default: return 'text-foreground';
+      case "low":
+        return "text-success";
+      case "medium":
+        return "text-warning";
+      case "high":
+      case "critical":
+        return "text-destructive";
+      default:
+        return "text-foreground";
     }
   };
 
   const getReleaseDecision = (score: number) => {
-    if (score <= 30) return 'SAFE TO RELEASE';
-    if (score <= 70) return 'REVIEW RECOMMENDED';
-    if (score <= 85) return 'REVIEW REQUIRED';
-    return 'HIGH RISK — RELEASE BLOCKED';
+    if (score <= 30) return "SAFE TO RELEASE";
+    if (score <= 70) return "REVIEW RECOMMENDED";
+    if (score <= 85) return "REVIEW REQUIRED";
+    return "HIGH RISK — RELEASE BLOCKED";
   };
 
   const getRiskChangeExplanation = () => {
     if (riskChange > 0) {
       const addedCount = addedFiles.length;
       const deletedCount = deletedFiles.length;
-      let explanation = `Risk increased because ${addedCount} file${addedCount === 1 ? '' : 's'} were added and ${deletedCount} file${deletedCount === 1 ? '' : 's'} were deleted.`;
-      const highRiskAdded = addedFiles.filter(f => 
-        highRiskKeywords.some(k => f.fileName.toLowerCase().includes(k))
+      let explanation = `Risk increased because ${addedCount} file${
+        addedCount === 1 ? "" : "s"
+      } were added and ${deletedCount} file${
+        deletedCount === 1 ? "" : "s"
+      } were deleted.`;
+      const highRiskAdded = addedFiles.filter((f) =>
+        highRiskKeywords.some((k) =>
+          f.fileName.toLowerCase().includes(k)
+        )
       );
       if (highRiskAdded.length > 0) {
-        explanation += ` High-risk files added: ${highRiskAdded.map(f => f.fileName).slice(0, 2).join(', ')}${highRiskAdded.length > 2 ? ' and more' : ''}.`;
+        explanation += ` High-risk files added: ${highRiskAdded
+          .map((f) => f.fileName)
+          .slice(0, 2)
+          .join(", ")}${highRiskAdded.length > 2 ? " and more" : ""}.`;
       }
       return explanation;
     } else if (riskChange < 0) {
       const addedCount = addedFiles.length;
       const deletedCount = deletedFiles.length;
-      let explanation = `Risk decreased because ${deletedCount} file${deletedCount === 1 ? '' : 's'} were deleted and ${addedCount} file${addedCount === 1 ? '' : 's'} were added.`;
-      const highRiskDeleted = deletedFiles.filter(f => 
-        highRiskKeywords.some(k => f.fileName.toLowerCase().includes(k))
+      let explanation = `Risk decreased because ${deletedCount} file${
+        deletedCount === 1 ? "" : "s"
+      } were deleted and ${addedCount} file${
+        addedCount === 1 ? "" : "s"
+      } were added.`;
+      const highRiskDeleted = deletedFiles.filter((f) =>
+        highRiskKeywords.some((k) =>
+          f.fileName.toLowerCase().includes(k)
+        )
       );
       if (highRiskDeleted.length > 0) {
-        explanation += ` High-risk files deleted: ${highRiskDeleted.map(f => f.fileName).slice(0, 2).join(', ')}${highRiskDeleted.length > 2 ? ' and more' : ''}.`;
+        explanation += ` High-risk files deleted: ${highRiskDeleted
+          .map((f) => f.fileName)
+          .slice(0, 2)
+          .join(", ")}${highRiskDeleted.length > 2 ? " and more" : ""}.`;
       }
       return explanation;
     } else {
@@ -155,131 +212,93 @@ const FileComparison = ({ result }: FileComparisonProps) => {
     }
   };
 
+  // Determine previous and current release names
+  // These would normally come from the comparison context, but we'll use generic labels
+  const previousReleaseName = "Previous Release";
+  const currentReleaseName = "Current Release";
+
   return (
     <div className="space-y-6 w-full max-w-6xl mx-auto">
-      {/* Comparison Overview Section */}
-      <div className="bg-gradient-to-r from-muted/30 to-muted/10 rounded-lg p-6 border border-muted/50">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <GitCompare className="h-6 w-6 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">Release Comparison</h2>
-          </div>
-          <Badge variant={hasDifferences ? "default" : "secondary"} className="text-sm">
-            {hasDifferences ? "Changes Detected" : "Identical Releases"}
-          </Badge>
-        </div>
-
-        {/* Comparison Flow */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Previous Release */}
-          <div className="text-center p-4 bg-background rounded-lg border border-muted/50">
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <FileMinus className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Previous Release</span>
+      {/* Release Comparison Summary Card */}
+      <Card className="border-b bg-muted/30">
+        <CardContent className="p-4 flex flex-col space-y-3">
+          {/* Release Names and Change Summary */}
+          <div className="flex items-start space-y-2">
+            {/* Previous Release Indicator */}
+            <div className="flex items-center space-x-3">
+              <FileMinus className="h-6 w-6 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Previous Release</p>
+                <p className="font-mono text-sm font-medium">
+                  {previousReleaseName}
+                </p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Name:</p>
-              <p className="font-mono text-sm font-medium">
-                {summary.unchanged > 0 && summary.added === 0 && summary.modified === 0 && summary.deleted === 0 
-                  ? "Release A" 
-                  : "Previous Release"}
+
+            {/* What Changed Indicator */}
+            <div className="flex flex-col items-center space-x-2">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-primary" />
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">What Changed</p>
+                <p className="text-sm font-medium">
+                  {summary.added > 0 && summary.modified > 0 && summary.deleted > 0
+                    ? "Multiple Changes"
+                    : summary.added > 0
+                    ? "Files Added"
+                    : summary.modified > 0
+                    ? "Files Modified"
+                    : summary.deleted > 0
+                    ? "Files Deleted"
+                    : "No Changes"}
+                </p>
+              </div>
+            </div>
+
+            {/* Current Release Indicator */}
+            <div className="flex items-start space-x-3">
+              <FilePlus className="h-6 w-6 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Current Release</p>
+                <p className="font-mono text-sm font-medium">
+                  {currentReleaseName}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 bg-emerald-500/10 rounded-lg text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Added</p>
+              <p className="text-2xl font-bold text-emerald-600">
+                {summary.added}
               </p>
-              <p className="text-xs text-muted-foreground">Files: {summary.unchanged + summary.added + summary.modified + summary.deleted}</p>
             </div>
-          </div>
-
-          {/* Changes Indicator */}
-          <div className="flex flex-col items-center justify-center space-y-2">
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-primary" />
+            <div className="p-3 bg-amber-500/10 rounded-lg text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Modified</p>
+              <p className="text-2xl font-bold text-amber-600">
+                {summary.modified}
+              </p>
             </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">What Changed</p>
-              <p className="text-sm font-medium">
-                {summary.added > 0 && summary.modified > 0 && summary.deleted > 0
-                  ? "Multiple Changes"
-                  : summary.added > 0
-                  ? "Files Added"
-                  : summary.modified > 0
-                  ? "Files Modified"
-                  : summary.deleted > 0
-                  ? "Files Deleted"
-                  : "No Changes"}
+            <div className="p-3 bg-red-500/10 rounded-lg text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Deleted</p>
+              <p className="text-2xl font-bold text-red-600">
+                {summary.deleted}
+              </p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Unchanged</p>
+              <p className="text-2xl font-bold text-muted-foreground">
+                {summary.unchanged}
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Current Release */}
-          <div className="text-center p-4 bg-background rounded-lg border border-muted/50">
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <FilePlus className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Current Release</span>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Name:</p>
-              <p className="font-mono text-sm font-medium">
-                {summary.added > 0 || summary.modified > 0 || summary.deleted > 0
-                  ? "Release B"
-                  : "Same Release"}
-              </p>
-              <p className="text-xs text-muted-foreground">Files: {summary.unchanged + summary.added + summary.modified + summary.deleted}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border-none shadow-none bg-emerald-500/5 dark:bg-emerald-500/5">
-            <CardContent className="p-4 flex items-center space-x-4">
-              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <FilePlus className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Added</p>
-                <p className="text-2xl font-bold text-emerald-600">{summary.added}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-none bg-amber-500/5 dark:bg-amber-500/5">
-            <CardContent className="p-4 flex items-center space-x-4">
-              <div className="p-2 bg-amber-500/20 rounded-lg">
-                <FileEdit className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Modified</p>
-                <p className="text-2xl font-bold text-amber-600">{summary.modified}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-none bg-red-500/5 dark:bg-red-500/5">
-            <CardContent className="p-4 flex items-center space-x-4">
-              <div className="p-2 bg-red-500/20 rounded-lg">
-                <FileMinus className="h-5 w-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Deleted</p>
-                <p className="text-2xl font-bold text-red-600">{summary.deleted}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-none bg-muted/50">
-            <CardContent className="p-4 flex items-center space-x-4">
-              <div className="p-2 bg-muted rounded-lg">
-                <FileCheck className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Unchanged</p>
-                <p className="text-2xl font-bold text-muted-foreground">{summary.unchanged}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Main Comparison Table Card */}
+      {/* Main Comparison Card */}
       <Card className="overflow-hidden">
         <CardHeader className="border-b bg-muted/30">
           <div className="flex items-center justify-between">
@@ -296,7 +315,7 @@ const FileComparison = ({ result }: FileComparisonProps) => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {!hasDifferences? (
+          {!hasDifferences ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
                 <FileCheck className="h-8 w-8 text-muted-foreground" />
