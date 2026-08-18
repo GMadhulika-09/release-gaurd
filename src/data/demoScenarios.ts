@@ -1,17 +1,3 @@
-export interface Finding {
-  id: number;
-  severity: "LOW" | "MEDIUM" | "HIGH";
-  file: string;
-  problem: string;
-  whyItMatters: string;
-  potentialImpact: string;
-}
-
-export interface RecommendedTest {
-  type: string;
-  description: string;
-}
-
 export interface DemoScenario {
   id: string;
   name: string;
@@ -29,7 +15,6 @@ export interface DemoScenario {
   findings: Finding[];
   recommendedTests: RecommendedTest[];
   releaseDecision: string;
-  // Blast radius data
   blastRadius: {
     level: "LOW" | "MEDIUM" | "HIGH";
     affectedFiles: number;
@@ -39,12 +24,25 @@ export interface DemoScenario {
     potentiallyAffected: string[];
     changedComponent: string;
   };
-  // Dependency data for visualization
   dependencyData: {
     changedComponent: string;
     callers: string[];
     highImpactCallers: string[];
     criticalPaths: string[];
+  };
+  testCoverage: {
+    status: "GOOD" | "PARTIAL";
+    changedComponents: number;
+    relevantTests: number;
+    componentsWithTests: number;
+    componentsWithoutTests: number;
+    gaps: {
+      component: string;
+      severity: "LOW" | "MEDIUM" | "HIGH";
+      missing: string;
+      why: string;
+      suggestedTestType: string;
+    }[];
   };
 }
 
@@ -61,10 +59,7 @@ const Button = ({ children, onClick }) => {
       {children}
     </button>
   );
-};
-
-// Before: Submit
-// After: Save Changes`,
+};`,
     riskScore: 25,
     riskLevel: "LOW",
     riskBreakdown: {
@@ -94,7 +89,6 @@ const Button = ({ children, onClick }) => {
       }
     ],
     releaseDecision: "SAFE TO RELEASE",
-    // Blast radius data for low-risk UI scenario
     blastRadius: {
       level: "LOW",
       affectedFiles: 1,
@@ -104,12 +98,19 @@ const Button = ({ children, onClick }) => {
       potentiallyAffected: ["UI components"],
       changedComponent: "Button.tsx"
     },
-    // Dependency data for visualization
     dependencyData: {
       changedComponent: "Button.tsx",
       callers: ["UI components", "Header"],
       highImpactCallers: [],
       criticalPaths: []
+    },
+    testCoverage: {
+      status: "GOOD",
+      changedComponents: 1,
+      relevantTests: 0,
+      componentsWithTests: 0,
+      componentsWithoutTests: 0,
+      gaps: []
     }
   },
   {
@@ -192,7 +193,6 @@ export const validateResetToken = async (
       }
     ],
     releaseDecision: "REVIEW RECOMMENDED",
-    // Blast radius data for medium-risk auth scenario
     blastRadius: {
       level: "MEDIUM",
       affectedFiles: 1,
@@ -202,12 +202,25 @@ export const validateResetToken = async (
       potentiallyAffected: ["Login", "User Profile", "Session Management"],
       changedComponent: "auth.ts"
     },
-    // Dependency data for visualization
     dependencyData: {
       changedComponent: "auth.ts",
       callers: ["Login", "User Profile", "Session Management", "API Routes", "Middleware", "Token Service", "Email Service", "Analytics"],
       highImpactCallers: ["Login", "Session Management"],
       criticalPaths: ["Session Management"]
+    },
+    testCoverage: {
+      status: "PARTIAL",
+      changedComponents: 1,
+      relevantTests: 0,
+      componentsWithTests: 0,
+      componentsWithoutTests: 1,
+      gaps: [{
+        component: "auth.ts",
+        severity: "HIGH",
+        missing: "Rate limiting implementation",
+        why: "No tests cover the security-sensitive operation",
+        suggestedTestType: "Security Test"
+      }]
     }
   },
   {
@@ -314,7 +327,6 @@ public class PaymentService {
       }
     ],
     releaseDecision: "REVIEW REQUIRED",
-    // Blast radius data for high-risk payment scenario
     blastRadius: {
       level: "HIGH",
       affectedFiles: 1,
@@ -324,12 +336,25 @@ public class PaymentService {
       potentiallyAffected: ["Checkout", "Subscription", "Refund", "Order History", "User Dashboard"],
       changedComponent: "PaymentService.java"
     },
-    // Dependency data for visualization
     dependencyData: {
       changedComponent: "PaymentService.java",
       callers: ["Checkout", "Subscription", "Refund", "Order History", "User Dashboard", "API Gateway", "Notification Service", "Analytics", "Reporting", "Admin Panel", "Email Service", "Audit Log", "Inventory Service"],
       highImpactCallers: ["Checkout", "Subscription", "Refund"],
       criticalPaths: ["Checkout", "Refund"]
+    },
+    testCoverage: {
+      status: "PARTIAL",
+      changedComponents: 1,
+      relevantTests: 0,
+      componentsWithTests: 0,
+      componentsWithoutTests: 1,
+      gaps: [{
+        component: "PaymentService.java",
+        severity: "HIGH",
+        missing: "ML model fallback implementation",
+        why: "No tests cover the security-sensitive operation",
+        suggestedTestType: "Security Test"
+      }]
     }
   }
 ];
