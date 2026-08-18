@@ -137,10 +137,10 @@ const ProjectIntelligenceCard = ({ file, zipResult, isProcessing }: ProjectIntel
               </div>
             </div>
             <div className="flex items-center space-x-2 p-2 bg-muted/30 rounded-lg">
-              {getLanguageIcon(language)}
+              <category.icon className={category.color.replace("bg-", "").replace("/10", "")} />
               <div>
-                <p className="text-xs text-muted-foreground">Language</p>
-                <p className="font-mono text-sm capitalize">{language.toLowerCase()}</p>
+                <p className="text-xs text-muted-foreground">Type</p>
+                <p className="font-mono text-sm">{fileType}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2 p-2 bg-muted/30 rounded-lg">
@@ -151,10 +151,10 @@ const ProjectIntelligenceCard = ({ file, zipResult, isProcessing }: ProjectIntel
               </div>
             </div>
             <div className="flex items-center space-x-2 p-2 bg-muted/30 rounded-lg">
-              {category.icon className={category.color.replace("bg-", "").replace("/10", "")} />
+              {getLanguageIcon(language)}
               <div>
-                <p className="text-xs text-muted-foreground">Type</p>
-                <p className="font-mono text-sm">{category.label}</p>
+                <p className="text-xs text-muted-foreground">Language</p>
+                <p className="font-mono text-sm capitalize">{language.toLowerCase()}</p>
               </div>
             </div>
           </div>
@@ -196,23 +196,13 @@ const ProjectIntelligenceCard = ({ file, zipResult, isProcessing }: ProjectIntel
           {/* Summary metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="p-3 bg-muted/30 rounded-lg text-center">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">ZIP Name</p>
-              <p className="text-2xl font-bold text-foreground">{file?.name || "Unknown Project"}</p>
-            </div>
-            <div className="p-3 bg-emerald-500/10 rounded-lg text-center border border-emerald-500/20">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">ZIP Size</p>
-              <p className="text-2xl font-bold text-emerald-600">{formatSize(file?.size || 0)}</p>
-            </div>
-            <div className="p-3 bg-emerald-500/10 rounded-lg text-center border border-emerald-500/20">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Files</p>
-              <p className="text-2xl font-bold text-emerald-600">{totalFiles}</p>
+              <p className="text-2xl font-bold text-foreground">{totalFiles}</p>
             </div>
             <div className="p-3 bg-emerald-500/10 rounded-lg text-center border border-emerald-500/20">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Code Files</p>
               <p className="text-2xl font-bold text-emerald-600">{codeFiles}</p>
             </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="p-3 bg-blue-500/10 rounded-lg text-center border border-blue-500/20">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Test Files</p>
               <p className="text-2xl font-bold text-blue-600">{testFiles}</p>
@@ -252,7 +242,7 @@ const ProjectIntelligenceCard = ({ file, zipResult, isProcessing }: ProjectIntel
                       key={name}
                       className="flex items-center space-x-2 text-xs p-2 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
                     >
-                      {getLanguageIcon(language)}
+                      <category.icon className={category.color} />
                       <span className="font-mono truncate flex-1 min-w-0">{name}</span>
                       <span className="px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground">
                         {formatSize(fileData.size)}
