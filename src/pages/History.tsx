@@ -8,12 +8,14 @@ import { showSuccess } from "@/utils/toast";
 import ComparisonHistoryEntry from "@/components/ComparisonHistoryEntry";
 import { getComparisonHistory, clearComparisonHistory, deleteComparisonEntry } from "@/utils/comparisonHistory";
 import { getRiskColor, getReleaseDecision } from "@/utils/riskScoring";
+import PreviousAnalysisContext from "@/components/PreviousAnalysisContext";
 
 const History = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [comparisonHistory, setComparisonHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("analyses");
+  const [selectedEntry, setSelectedEntry] = useState(null);
 
   useEffect(() => {
     const loadData = () => {
@@ -41,7 +43,7 @@ const History = () => {
     loadData();
   }, []);
 
-  const clearAnalysisHistory = () => {
+  const handleClearAnalysisHistory = () => {
     if (window.confirm("Are you sure you want to delete all analysis history?")) {
       localStorage.removeItem("releaseGuardHistory");
       setHistory([]);
@@ -61,6 +63,10 @@ const History = () => {
     deleteComparisonEntry(id);
     setComparisonHistory(getComparisonHistory());
     showSuccess("Comparison entry removed");
+  };
+
+  const handleSelectEntry = (entry: any) => {
+    setSelectedEntry(entry);
   };
 
   if (loading) {
@@ -102,159 +108,167 @@ const History = () => {
               </Button>
             </div>
           ) : (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center space-x-2">
-                    <Clock className="h-4 w-4" />
-                    <h3>Analysis History</h3>
-                  </CardTitle>
-                  <div className="flex items-center space-x-2">
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center space-x-2">
+                      <Clock className="h-4 w-4" />
+                      <h3>Analysis History</h3>
+                    </CardTitle>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const saved = localStorage.getItem("releaseGuardHistory");
+                          const parsed = saved ? JSON.parse(saved) : [];
+                          parsed.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                          setHistory(parsed);
+                          showSuccess("History refreshed");
+                        }}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Refresh
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleClearAnalysisHistory}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Clear All
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {history.length} {history.length === 1 ? "analysis" : "analyses"}
+                  </p>
+                  
+                  {history.map((item: any) => (
+                    <div 
+                      key={item.id} 
+                      className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                      onClick={() => handleSelectEntry(item)}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium">{item.name}</h4>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {item.description}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid gap-2 sm:grid-cols-3 text-center">
+                        <div className="p-2 bg-emerald-500/10 rounded-lg">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Added</p>
+                          <p className="text-lg font-bold text-emerald-600">{item.filesAdded || 0}</p>
+                        </div>
+                        <div className="p-2 bg-amber-500/10 rounded-lg">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Modified</p>
+                          <p className="text-lg font-bold text-amber-600">{item.filesModified || 0}</p>
+                        </div>
+                        <div className="p-2 bg-red-500/10 rounded-lg">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Deleted</p>
+                          <p className="text-lg font-bold text-red-600">{item.filesDeleted || 0}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 p-3 bg-muted/30 rounded-lg">
+                        <h4 className="text-sm font-medium mb-2">Risk Evolution</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Previous</p>
+                            <p className="font-mono font-bold">{item.previousRisk || 0}</p>
+                            <p className="text-xs text-muted-foreground">{getReleaseDecision(item.previousRisk || 0)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Current</p>
+                            <p className={`font-mono font-bold ${getRiskColor(item.riskScore)}`}>
+                              {item.riskScore}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{item.riskLevel}</p>
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-muted">
+                          <p className="text-sm font-medium">Decision:</p>
+                          <p className={`font-medium ${getRiskColor(item.riskScore)}`}>
+                            {getReleaseDecision(item.riskScore)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="comparisons" className="space-y-6">
+            {comparisonHistory.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-5xl text-muted-foreground mb-4">📊</div>
+                <h3 className="text-lg font-medium text-muted-foreground">No comparisons yet</h3>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Compare releases to see history here.
+                </p>
+              </div>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center space-x-2">
+                      <GitCompare className="h-4 w-4" />
+                      <h3>Comparison History</h3>
+                    </CardTitle>
                     <Button 
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        const saved = localStorage.getItem("releaseGuardHistory");
-                        const parsed = saved ? JSON.parse(saved) : [];
-                        parsed.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-                        setHistory(parsed);
-                        showSuccess("History refreshed");
-                      }}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Refresh
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearAnalysisHistory}
+                      onClick={handleClearComparisonHistory}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Clear All
                     </Button>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Showing {history.length} {history.length === 1 ? "analysis" : "analyses"}
-                </p>
-                
-                {history.map((item: any) => (
-                  <div key={item.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium">{item.name}</h4>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {item.description}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid gap-2 sm:grid-cols-3 text-center">
-                      <div className="p-2 bg-emerald-500/10 rounded-lg">
-                        <p className="text-xs text-muted-foreground">Added</p>
-                        <p className="text-lg font-bold text-emerald-600">{item.filesAdded || 0}</p>
-                      </div>
-                      <div className="p-2 bg-amber-500/10 rounded-lg">
-                        <p className="text-xs text-muted-foreground">Modified</p>
-                        <p className="text-lg font-bold text-amber-600">{item.filesModified || 0}</p>
-                      </div>
-                      <div className="p-2 bg-red-500/10 rounded-lg">
-                        <p className="text-xs text-muted-foreground">Deleted</p>
-                        <p className="text-lg font-bold text-red-600">{item.filesDeleted || 0}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-3 p-3 bg-muted/30 rounded-lg">
-                      <h4 className="text-sm font-medium mb-2">Risk Evolution</h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Previous</p>
-                          <p className="font-mono font-bold">{item.previousRisk || 0}</p>
-                          <p className="text-xs text-muted-foreground">{getReleaseDecision(item.previousRisk || 0)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Current</p>
-                          <p className={`font-mono font-bold ${getRiskColor(item.riskLevel)}`}>
-                            {item.riskScore}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{item.riskLevel}</p>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-muted">
-                        <p className="text-sm font-medium">Decision:</p>
-                        <p className={`font-medium ${getRiskColor(item.riskLevel)}`}>
-                          {getReleaseDecision(item.riskScore)}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3 text-sm mt-3">
-                      <div className="flex items-center space-x-1">
-                        <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-                        <span>{item.riskLevel}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span>{new Date(item.timestamp).toLocaleString()}</span>
-                      </div>
-                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {comparisonHistory.length} {comparisonHistory.length === 1 ? "comparison" : "comparisons"}
+                  </p>
+                  
+                  <div className="space-y-3">
+                    {comparisonHistory.map((entry: any) => (
+                      <ComparisonHistoryEntry 
+                        key={entry.id} 
+                        entry={entry} 
+                        onDelete={handleDeleteComparisonEntry} 
+                        onSelect={handleSelectEntry}
+                      />
+                    ))}
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
 
-        <TabsContent value="comparisons" className="space-y-6">
-          {comparisonHistory.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-5xl text-muted-foreground mb-4">📊</div>
-              <h3 className="text-lg font-medium text-muted-foreground">No comparisons yet</h3>
-              <p className="text-sm text-muted-foreground mt-2">
-                Compare releases to see history here.
-              </p>
-            </div>
-          ) : (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center space-x-2">
-                    <GitCompare className="h-4 w-4" />
-                    <h3>Comparison History</h3>
-                  </CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleClearComparisonHistory}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Clear All
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Showing {comparisonHistory.length} {comparisonHistory.length === 1 ? "comparison" : "comparisons"}
-                </p>
-                
-                <div className="space-y-3">
-                  {comparisonHistory.map((entry: any) => (
-                    <ComparisonHistoryEntry 
-                      key={entry.id} 
-                      entry={entry} 
-                      onDelete={handleDeleteComparisonEntry} 
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-};
+        {/* Entry Details Section */}
+        {selectedEntry && (
+          <div className="mt-8">
+            <PreviousAnalysisContext 
+              riskScore={selectedEntry.riskScore} 
+              riskLevel={selectedEntry.riskLevel} 
+              findingsCount={selectedEntry.findingsCount} 
+              recommendedTestsCount={selectedEntry.recommendedTestsCount} 
+              releaseDecision={selectedEntry.releaseDecision}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
 
-export default History;
+  export default History;
