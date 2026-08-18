@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Trash2, Clock, GitCompare } from "lucide-react";
 import { useState } from "react";
 import { ComparisonHistoryEntry } from "@/utils/comparisonHistory";
+import { getRiskLevel, getRiskColor, getReleaseDecision } from "@/utils/riskScoring";
 
 interface ComparisonHistoryEntryProps {
   entry: ComparisonHistoryEntry;
@@ -38,6 +39,30 @@ const ComparisonHistoryEntry = ({ entry, onDelete }: ComparisonHistoryEntryProps
     return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Calculate risk change and scores from the entry data
+  const calculateRiskMetrics = () => {
+    // Use stored risk scores if available, otherwise calculate defaults
+    const prevRisk = entry.previousRiskScore !== undefined ? entry.previousRiskScore : 50;
+    const currRisk = entry.currentRiskScore !== undefined ? entry.currentRiskScore : 50;
+    
+    const riskChange = currRisk - prevRisk;
+    const clampedPreviousRisk = Math.max(0, Math.min(100, prevRisk));
+    const clampedCurrentRisk = Math.max(0, Math.min(100, currRisk));
+    
+    return {
+      previousRisk: clampedPreviousRisk,
+      currentRisk: clampedCurrentRisk,
+      riskChange,
+      riskLevelPrevious: getRiskLevel(clampedPreviousRisk),
+      riskLevelCurrent: getRiskLevel(clampedCurrentRisk),
+      riskColorPrevious: getRiskColor(clampedPreviousRisk),
+      riskColorCurrent: getRiskColor(clampedCurrentRisk),
+      releaseDecisionCurrent: getReleaseDecision(clampedCurrentRisk)
+    };
+  };
+
+  const riskMetrics = calculateRiskMetrics();
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
@@ -71,18 +96,18 @@ const ComparisonHistoryEntry = ({ entry, onDelete }: ComparisonHistoryEntryProps
             <div className="flex items-center space-x-2">
               <span className="text-sm text-muted-foreground">Risk:</span>
               <span className="font-mono text-sm">
-                {entry.previousRiskScore} → {entry.currentRiskScore}
+                {riskMetrics.previousRisk} → {riskMetrics.currentRisk}
               </span>
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-sm text-muted-foreground">Change:</span>
-              <span className={`font-mono text-sm font-bold ${entry.riskChange >= 0 ? 'text-success' : 'text-destructive'}`}>
-                {entry.riskChange >= 0 ? '+' : ''}{entry.riskChange}
+              <span className={`font-mono text-sm font-bold ${riskMetrics.riskChange >= 0 ? 'text-success' : 'text-destructive'}`}>
+                {riskMetrics.riskChange >= 0 ? '+' : ''}{riskMetrics.riskChange}
               </span>
             </div>
           </div>
-          <Badge variant={getRiskBadgeVariant(entry.currentRiskScore)} className="text-xs">
-            {getRiskLevel(entry.currentRiskScore)}
+          <Badge variant={getRiskBadgeVariant(riskMetrics.currentRisk)} className="text-xs">
+            {riskMetrics.riskLevelCurrent}
           </Badge>
         </div>
 
@@ -131,8 +156,8 @@ const ComparisonHistoryEntry = ({ entry, onDelete }: ComparisonHistoryEntryProps
               </div>
               <div>
                 <span className="text-muted-foreground">Status:</span>
-                <span className={`ml-2 font-medium ${getRiskColor(entry.currentRiskScore)}`}>
-                  {entry.releaseStatus}
+                <span className={`ml-2 font-medium ${riskMetrics.riskColorCurrent}`}>
+                  {riskMetrics.riskLevelCurrent}
                 </span>
               </div>
             </div>
@@ -148,6 +173,33 @@ const ComparisonHistoryEntry = ({ entry, onDelete }: ComparisonHistoryEntryProps
               <div className="p-2 bg-red-500/10 rounded-lg">
                 <p className="text-xs text-muted-foreground">Deleted</p>
                 <p className="text-lg font-bold text-red-600">{entry.filesDeleted}</p>
+              </div>
+            </div>
+            
+            {/* Risk Evolution Details */}
+            <div className="mt-3 p-3 bg-muted/30 rounded-lg">
+              <h4 className="text-sm font-medium mb-2">Risk Evolution</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Previous</p>
+                  <p className={`font-mono font-bold ${riskMetrics.riskColorPrevious}`}>
+                    {riskMetrics.previousRisk}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{riskMetrics.riskLevelPrevious}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Current</p>
+                  <p className={`font-mono font-bold ${riskMetrics.riskColorCurrent}`}>
+                    {riskMetrics.currentRisk}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{riskMetrics.riskLevelCurrent}</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-muted">
+                <p className="text-sm font-medium">Decision:</p>
+                <p className={`font-medium ${riskMetrics.riskColorCurrent}`}>
+                  {riskMetrics.releaseDecisionCurrent}
+                </p>
               </div>
             </div>
           </div>
