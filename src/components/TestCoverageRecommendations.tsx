@@ -1,1 +1,1 @@
-import { Finding, TestCoverageData } from "@/data/demoScenarios";
+import type { Finding, TestCoverageData } from "@/data/demoScenarios";
