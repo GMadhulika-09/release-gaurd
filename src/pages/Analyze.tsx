@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, AlertTriangle, AlertCircle, CheckCircle } from "lucide-react";
-import { DemoScenario } from "@/data/demoScenarios";
+import { DemoScenario, Finding } from "@/data/demoScenarios";
 import { showSuccess } from "@/utils/toast";
 import RiskIntelligenceCard from "@/components/RiskIntelligenceCard";
 import BlastRadius from "@/components/BlastRadius";
-import TestCoverageRecommendations from "@/components/TestCoverageRecommendations";
+import FindingsCard from "@/components/FindingsCard";
+import { calculateRiskScore, RiskScoreResult } from "@/utils/riskScoring";
 
 interface AnalysisResultsCardProps {
   result: DemoScenario;
@@ -41,12 +42,13 @@ const AnalysisResultsCard = ({
     }
   };
 
-  const getSeverityStyles = (severity: string) => {
-    switch (severity) {
-      case "LOW": return "bg-success/20 text-success";
-      case "MEDIUM": return "bg-warning/20 text-warning";
-      case "HIGH": return "bg-destructive/20 text-destructive";
-      default: return "bg-muted text-muted-foreground";
+  const getRiskBadgeVariant = (level: string) => {
+    switch (level) {
+      case "LOW": return "default";
+      case "MEDIUM": return "secondary";
+      case "HIGH":
+      case "CRITICAL": return "destructive";
+      default: return "default";
     }
   };
 
@@ -147,136 +149,81 @@ const AnalysisResultsCard = ({
         dependencyData={getDependencyData()}
         explanation={getBlastRadiusExplanation()}
       />
-
-      <TestCoverageRecommendations 
-        findings={result.findings} 
-        testCoverage={{
-          status: "GOOD",
-          changedComponents: 1,
-          relevantTests: 1,
-          componentsWithTests: 1,
-          componentsWithoutTests: 0,
-          gaps: []
-        }} 
-      />
     </Card>
   );
 };
 
 const Analyze = () => {
-  const [selectedScenario, setSelectedScenario] = useState<DemoScenario>(() => {
-    return (import("@/data/demoScenarios").then(m => m.default[0]));
-  });
-  // Note: In a real app, this would be handled via async/await or useEffect
-  // For this fix, we'll assume the scenario is loaded or use a placeholder
-  const [scenario, setScenario] = useState<DemoScenario>(() => {
-    if (typeof window !== "undefined") {
-      return (window as any).demoScenario || ({} as DemoScenario);
-    }
-    return {} as DemoScenario;
-  });
+  const [selectedScenario, setSelectedScenario] = useState<DemoScenario | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Since I cannot use async in useState directly without useEffect, 
-  // and I must not redesign, I'll assume the scenario is passed or handled.
-  // For the purpose of fixing the export error, I will provide a functional component structure.
+  useEffect(() => {
+    // Load demo scenarios
+    import("@/data/demoScenarios").then((module) => {
+      const scenarios = module.default;
+      // Default to the first scenario (Low Risk)
+      setSelectedScenario(scenarios[0]);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleSaveToHistory = () => {
+    if (selectedScenario) {
+      showSuccess("Analysis saved! Check History tab to view.");
+    }
+  };
+
+  const handleScenarioChange = (scenario: DemoScenario) => {
+    setSelectedScenario(scenario);
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="inline-block animate-spin rounded-full border-4 border-primary/20 border-primary w-12 h-12"></div>
+        <p className="mt-4 text-muted-foreground">Loading analysis...</p>
+      </div>
+    );
+  }
+
+  if (!selectedScenario) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">No scenario selected</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
           <AnalysisResultsCard 
-            result={scenario || ({} as DemoScenario)} 
-            onSaveToHistory={() => {}} 
+            result={selectedScenario} 
+            onSaveToHistory={handleSaveToHistory} 
           />
         </div>
         <div className="space-y-6">
           <RiskIntelligenceCard
-            components={scenario?.riskBreakdown || {} as any}
-            overallScore={scenario?.riskScore || 0}
-            riskLevel={scenario?.riskLevel || "LOW"}
-            explanation={scenario?.explanation || ""}
+            components={selectedScenario.riskBreakdown}
+            overallScore={selectedScenario.riskScore}
+            riskLevel={selectedScenario.riskLevel}
+            explanation={selectedScenario.explanation}
           />
           <BlastRadius 
-            blastRadius={scenario?.blastRadius || {} as any}
-            dependencyData={scenario?.dependencyData || {} as any}
-            explanation={scenario?.description || ""}
+            blastRadius={selectedScenario.blastRadius}
+            dependencyData={selectedScenario.dependencyData}
+            explanation={selectedScenario.description}
           />
         </div>
+      </div>
+
+      {/* Findings Card Section */}
+      <div className="grid grid-cols-1 gap-6">
+        <FindingsCard findings={selectedScenario.findings} />
       </div>
     </div>
   );
 };
 
-// Re-implementing the actual logic for the demo scenario to ensure it works
-// but keeping it simple as requested.
-const DemoAnalyze = () => {
-  const [scenario, setScenario] = useState<DemoScenario | null>(null);
-
-  // This is a placeholder for the actual logic that would be in the real app
-  // but I'm fixing the export error.
-  return (
-    <div className="space-y-6">
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2">
-          <AnalysisResultsCard 
-            result={scenario || ({} as DemoScenario)} 
-            onSaveToHistory={() => {}} 
-          />
-        </div>
-        <div className="space-y-6">
-          <RiskIntelligenceCard
-            components={scenario?.riskBreakdown || {} as any}
-            overallScore={scenario?.riskScore || 0}
-            riskLevel={scenario?.riskLevel || "LOW"}
-            explanation={scenario?.explanation || ""}
-          />
-          <BlastRadius 
-            blastRadius={scenario?.blastRadius || {} as any}
-            dependencyData={scenario?.dependencyData || {} as any}
-            explanation={scenario?.description || ""}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// The actual component that will be used
-export default function AnalyzePage() {
-  // In a real implementation, this would fetch the scenario
-  // For the sake of fixing the error, we'll use a dummy scenario if none is loaded
-  const [scenario, setScenario] = useState<DemoScenario | null>(null);
-
-  // This is just to make the component render without crashing
-  const getDummyScenario = (): DemoScenario => {
-    return (window as any).demoScenario || ({} as DemoScenario);
-  };
-
-  const currentScenario = getDummyScenario();
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2">
-          <AnalysisResultsCard 
-            result={currentScenario} 
-            onSaveToHistory={() => {}} 
-          />
-        </div>
-        <div className="space-y-6">
-          <RiskIntelligenceCard
-            components={currentScenario.riskBreakdown || {} as any}
-            overallScore={currentScenario.riskScore || 0}
-            riskLevel={currentScenario.riskLevel || "LOW"}
-            explanation={currentScenario.explanation || ""}
-          />
-          <BlastRadius 
-            blastRadius={currentScenario.blastRadius || {} as any}
-            dependencyData={currentScenario.dependencyData || {} as any}
-            explanation={currentScenario.description || ""}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+export default Analyze;
