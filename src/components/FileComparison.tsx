@@ -1,14 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   FilePlus,
   FileEdit,
   FileMinus,
@@ -165,55 +157,126 @@ const FileComparison = ({ result }: FileComparisonProps) => {
 
   return (
     <div className="space-y-6 w-full max-w-6xl mx-auto">
-      {/* Metric Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-none shadow-none bg-emerald-500/5 dark:bg-emerald-500/5">
-          <CardContent className="p-4 flex items-center space-x-4">
-            <div className="p-2 bg-emerald-500/20 rounded-lg">
-              <FilePlus className="h-5 w-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Added</p>
-              <p className="text-2xl font-bold text-emerald-600">{summary.added}</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Comparison Overview Section */}
+      <div className="bg-gradient-to-r from-muted/30 to-muted/10 rounded-lg p-6 border border-muted/50">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <GitCompare className="h-6 w-6 text-primary" />
+            <h2 className="text-xl font-semibold text-foreground">Release Comparison</h2>
+          </div>
+          <Badge variant={hasDifferences ? "default" : "secondary"} className="text-sm">
+            {hasDifferences ? "Changes Detected" : "Identical Releases"}
+          </Badge>
+        </div>
 
-        <Card className="border-none shadow-none bg-amber-500/5 dark:bg-amber-500/5">
-          <CardContent className="p-4 flex items-center space-x-4">
-            <div className="p-2 bg-amber-500/20 rounded-lg">
-              <FileEdit className="h-5 w-5 text-amber-600" />
+        {/* Comparison Flow */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* Previous Release */}
+          <div className="text-center p-4 bg-background rounded-lg border border-muted/50">
+            <div className="flex items-center justify-center space-x-2 mb-2">
+              <FileMinus className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Previous Release</span>
             </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Modified</p>
-              <p className="text-2xl font-bold text-amber-600">{summary.modified}</p>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Name:</p>
+              <p className="font-mono text-sm font-medium">
+                {summary.unchanged > 0 && summary.added === 0 && summary.modified === 0 && summary.deleted === 0 
+                  ? "Release A" 
+                  : "Previous Release"}
+              </p>
+              <p className="text-xs text-muted-foreground">Files: {summary.unchanged + summary.added + summary.modified + summary.deleted}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card className="border-none shadow-none bg-red-500/5 dark:bg-red-500/5">
-          <CardContent className="p-4 flex items-center space-x-4">
-            <div className="p-2 bg-red-500/20 rounded-lg">
-              <FileMinus className="h-5 w-5 text-red-600" />
+          {/* Changes Indicator */}
+          <div className="flex flex-col items-center justify-center space-y-2">
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              <AlertCircle className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Deleted</p>
-              <p className="text-2xl font-bold text-red-600">{summary.deleted}</p>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">What Changed</p>
+              <p className="text-sm font-medium">
+                {summary.added > 0 && summary.modified > 0 && summary.deleted > 0
+                  ? "Multiple Changes"
+                  : summary.added > 0
+                  ? "Files Added"
+                  : summary.modified > 0
+                  ? "Files Modified"
+                  : summary.deleted > 0
+                  ? "Files Deleted"
+                  : "No Changes"}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card className="border-none shadow-none bg-muted/50">
-          <CardContent className="p-4 flex items-center space-x-4">
-            <div className="p-2 bg-muted rounded-lg">
-              <FileCheck className="h-5 w-5 text-muted-foreground" />
+          {/* Current Release */}
+          <div className="text-center p-4 bg-background rounded-lg border border-muted/50">
+            <div className="flex items-center justify-center space-x-2 mb-2">
+              <FilePlus className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Current Release</span>
             </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Unchanged</p>
-              <p className="text-2xl font-bold text-muted-foreground">{summary.unchanged}</p>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Name:</p>
+              <p className="font-mono text-sm font-medium">
+                {summary.added > 0 || summary.modified > 0 || summary.deleted > 0
+                  ? "Release B"
+                  : "Same Release"}
+              </p>
+              <p className="text-xs text-muted-foreground">Files: {summary.unchanged + summary.added + summary.modified + summary.deleted}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="border-none shadow-none bg-emerald-500/5 dark:bg-emerald-500/5">
+            <CardContent className="p-4 flex items-center space-x-4">
+              <div className="p-2 bg-emerald-500/20 rounded-lg">
+                <FilePlus className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Added</p>
+                <p className="text-2xl font-bold text-emerald-600">{summary.added}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-none bg-amber-500/5 dark:bg-amber-500/5">
+            <CardContent className="p-4 flex items-center space-x-4">
+              <div className="p-2 bg-amber-500/20 rounded-lg">
+                <FileEdit className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Modified</p>
+                <p className="text-2xl font-bold text-amber-600">{summary.modified}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-none bg-red-500/5 dark:bg-red-500/5">
+            <CardContent className="p-4 flex items-center space-x-4">
+              <div className="p-2 bg-red-500/20 rounded-lg">
+                <FileMinus className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Deleted</p>
+                <p className="text-2xl font-bold text-red-600">{summary.deleted}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-none bg-muted/50">
+            <CardContent className="p-4 flex items-center space-x-4">
+              <div className="p-2 bg-muted rounded-lg">
+                <FileCheck className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Unchanged</p>
+                <p className="text-2xl font-bold text-muted-foreground">{summary.unchanged}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Main Comparison Table Card */}
@@ -291,43 +354,69 @@ const FileComparison = ({ result }: FileComparisonProps) => {
 
       {/* Risk Evolution Section */}
       <div className="mt-6">
-        <h3 className="text-lg font-medium text-muted-foreground">Risk Evolution</h3>
-        <div className="mt-4 flex flex-col space-x-6 sm:flex-row sm:space-x-0 sm:space-x-6">
+        <h3 className="text-lg font-medium text-muted-foreground mb-4">Risk Evolution</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Previous Risk */}
-          <div className="flex flex-col items-center">
-            <p className="text-sm text-muted-foreground">Previous Risk</p>
-            <p className={`text-2xl font-bold ${getRiskColor(clampedPreviousRisk)}`}>
-              {Math.round(clampedPreviousRisk)} / 100
-            </p>
-            <p className="text-xs text-muted-foreground capitalize">
-              {getRiskLevel(clampedPreviousRisk)}
-            </p>
-          </div>
+          <Card className="border-muted/50">
+            <CardContent className="p-6 text-center">
+              <p className="text-sm text-muted-foreground mb-2">Previous Risk</p>
+              <p className={`text-3xl font-bold ${getRiskColor(clampedPreviousRisk)}`}>
+                {Math.round(clampedPreviousRisk)}
+              </p>
+              <p className="text-xs text-muted-foreground capitalize mt-1">
+                {getRiskLevel(clampedPreviousRisk)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                {getReleaseDecision(clampedPreviousRisk)}
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Risk Change */}
-          <div className="flex flex-col items-center">
-            <p className="text-sm text-muted-foreground">Risk Change</p>
-            <p className={`text-2xl font-bold ${riskChange >= 0 ? 'text-success' : 'text-destructive'}`}>
-              {riskChange >= 0 ? '+' : ''}{Math.round(riskChange)}
-            </p>
-          </div>
+          <Card className="border-muted/50">
+            <CardContent className="p-6 text-center">
+              <p className="text-sm text-muted-foreground mb-2">Risk Change</p>
+              <div className="flex items-center justify-center space-x-2">
+                <p className={`text-3xl font-bold ${riskChange >= 0 ? 'text-success' : 'text-destructive'}`}>
+                  {riskChange >= 0 ? '+' : ''}{Math.round(riskChange)}
+                </p>
+                <div className="text-lg">
+                  {riskChange >= 0 ? (
+                    <FilePlus className="h-5 w-5 text-success" />
+                  ) : riskChange < 0 ? (
+                    <FileMinus className="h-5 w-5 text-destructive" />
+                  ) : (
+                    <FileCheck className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground capitalize mt-1">
+                {riskChange > 0 ? 'Increased' : riskChange < 0 ? 'Decreased' : 'No Change'}
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Current Risk */}
-          <div className="flex flex-col items-center">
-            <p className="text-sm text-muted-foreground">Current Risk</p>
-            <p className={`text-2xl font-bold ${getRiskColor(clampedCurrentRisk)}`}>
-              {Math.round(clampedCurrentRisk)} / 100
-            </p>
-            <p className="text-xs text-muted-foreground capitalize">
-              {getRiskLevel(clampedCurrentRisk)}
-            </p>
-          </div>
+          <Card className="border-muted/50">
+            <CardContent className="p-6 text-center">
+              <p className="text-sm text-muted-foreground mb-2">Current Risk</p>
+              <p className={`text-3xl font-bold ${getRiskColor(clampedCurrentRisk)}`}>
+                {Math.round(clampedCurrentRisk)}
+              </p>
+              <p className="text-xs text-muted-foreground capitalize mt-1">
+                {getRiskLevel(clampedCurrentRisk)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2 font-medium">
+                {getReleaseDecision(clampedCurrentRisk)}
+              </p>
+            </CardContent>
+          </Card>
         </div>
-        <div className="mt-4 text-center">
-          <p className="text-sm text-muted-foreground">{getRiskChangeExplanation()}</p>
-        </div>
-        <div className="mt-4">
-          <h3 className="text-lg font-medium text-muted-foreground">Release Status</h3>
-          <p className={`text-sm font-medium ${getRiskColor(clampedCurrentRisk)}`}>
-            {getReleaseDecision(clampedCurrentRisk)}
+
+        {/* Risk Change Explanation */}
+        <div className="mt-6 p-4 bg-muted/30 rounded-lg">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium">Why risk changed:</span> {getRiskChangeExplanation()}
           </p>
         </div>
       </div>
