@@ -1,1 +1,170 @@
-import { useState, useEffect } from "react"; import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; import { Button } from "@/components/ui/button"; import { ShieldCheck, AlertTriangle, AlertCircle, CheckCircle } from "lucide-react"; import { DemoScenario, Finding } from "@/data/demoScenarios"; import { showSuccess } from "@/utils/toast"; import RiskIntelligenceCard from "@/components/RiskIntelligenceCard"; import BlastRadius from "@/components/BlastRadius"; import FindingsCard from "@/components/FindingsCard"; import { calculateRiskScore, RiskScoreResult } from "@/utils/riskScoring"; const getDependencyData = (result: DemoScenario): { changedComponent: string; callers: string[]; highImpactCallers: string[]; criticalPaths: string[]; } => { return result.dependencyData; }; interface AnalysisResultsCardProps { result: DemoScenario; onSaveToHistory: () => void; changedFiles?: string[]; addedFiles?: string[]; deletedFiles?: string[]; modifiedFiles?: string[]; testFileCount?: number; codeFileCount?: number; hasTestFiles?: boolean; } const AnalysisResultsCard = ({ result, onSaveToHistory, changedFiles = [], addedFiles = [], deletedFiles = [], modifiedFiles = [], testFileCount = 0, codeFileCount = 0, hasTestFiles = false, }: AnalysisResultsCardProps) => { const getRiskColor = (level: string) => { switch (level) { case "LOW": return "text-success"; case "MEDIUM": return "text-warning"; case "HIGH": case "CRITICAL": return "text-destructive"; default: return "text-foreground"; } }; const getRiskBadgeVariant = (level: string) => { switch (level) { case "LOW": return "default"; case "MEDIUM": return "secondary"; case "HIGH": case "CRITICAL": return "destructive"; default: return "default"; } }; const getRiskIcon = (level: string) => { switch (level) { case "LOW": return <CheckCircle className="h-4 w-4 text-success" />; case "MEDIUM": return <AlertTriangle className="h-4 w-4 text-warning" />; case "HIGH": case "CRITICAL": return <AlertCircle className="h-4 w-4 text-destructive" />; default: return null; } }; const getBlastRadiusExplanation = (): string => { const { blastRadius } = result; if (blastRadius.level === "HIGH") { return `This change has a high potential blast radius because the modified ${blastRadius.changedComponent} is used by multiple business-critical flows.`; } else if (blastRadius.level === "MEDIUM") { return `This change has a moderate blast radius with some downstream dependencies that could be affected.`; } else { return `The changed component appears isolated and has limited downstream impact.`; } }; return ( <Card className="h-full"> <CardHeader> <CardTitle className="flex items-center space-x-2"> <ShieldCheck className="h-4 w-4 text-primary" /> <h3>Analysis Results</h3> </CardTitle> </CardHeader> <CardContent className="space-y-5"> <div className="space-y-3"> <div className="flex items-center justify-between"> <div> <h3 className="text-lg font-medium text-muted-foreground">Release Risk Score</h3> <p className="text-2xl font-bold">{result.riskScore} / 100</p> </div> <div className={`text-2xl font-bold ${getRiskColor(result.riskLevel)}`}> {result.riskLevel} </div> </div> </div> <div className="space-y-4"> <h3 className="text-lg font-medium text-muted-foreground">Risk Breakdown</h3> <div className="space-y-2"> <div className="flex justify-between text-sm"> <span>Change Complexity</span> <span>{result.riskBreakdown.complexity}</span> </div> <div className="flex justify-between text-sm"> <span>Business Impact</span> <span>{result.riskBreakdown.impact}</span> </div> <div className="flex justify-between text-sm"> <span>Reachability</span> <span>{result.riskBreakdown.reachability}</span> </div> <div className="flex justify-between text-sm"> <span>Test Coverage (Inverse)</span> <span>{100 - result.riskBreakdown.testCoverage}</span> </div> </div> </div> <div className="space-y-3"> <h3 className="text-lg font-medium text-muted-foreground">Risk Summary</h3> <p>{result.description}</p> </div> </CardContent> <CardFooter className="flex justify-end space-x-3"> <Button variant="outline" onClick={onSaveToHistory}> Save to History </Button> <Button onClick={() => { showSuccess("Analysis saved! Check History tab to view."); }} > View in History </Button> </CardFooter> <BlastRadius blastRadius={result.blastRadius} dependencyData={getDependencyData(result)} explanation={getBlastRadiusExplanation()} /> </Card> ); }; const Analyze = () => { const [selectedScenario, setSelectedScenario] = useState<DemoScenario | null>(null); const [loading, setLoading] = useState(true); useEffect(() => { import("@/data/demoScenarios").then((module) => { const scenarios = module.default; setSelectedScenario(scenarios[0]); setLoading(false); }); }, []); const handleSaveToHistory = () => { if (selectedScenario) { showSuccess("Analysis saved! Check History tab to view."); } }; const handleScenarioChange = (scenario: DemoScenario) => { setSelectedScenario(scenario); }; if (loading) { return ( <div className="text-center py-12"> <div className="inline-block animate-spin rounded-full border-4 border-primary/20 border-primary w-12 h-12"></div> <p className="mt-4 text-muted-foreground">Loading analysis...</p> </div> ); } if (!selectedScenario) { return ( <div className="text-center py-12"> <p className="text-muted-foreground">No scenario selected</p> </div> ); } return ( <div className="space-y-6"> <div className="grid grid-cols-1 md:grid-cols-3 gap-6"> <div className="md:col-span-2"> <AnalysisResultsCard result={selectedScenario} onSaveToHistory={handleSaveToHistory} /> </div> <div className="space-y-6"> <RiskIntelligenceCard components={selectedScenario.riskBreakdown} overallScore={selectedScenario.riskScore} riskLevel={selectedScenario.riskLevel} explanation={selectedScenario.explanation} /> <BlastRadius blastRadius={selectedScenario.blastRadius} dependencyData={getDependencyData(selectedScenario)} explanation={selectedScenario.description} /> </div> </div> {/* Findings Card Section */} <div className="grid grid-cols-1 gap-6"> <FindingsCard findings={selectedScenario.findings} /> </div> </div> ); }; export default Analyze;
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ShieldCheck, AlertTriangle, AlertCircle, CheckCircle } from "lucide-react";
+import type { DemoScenario, Finding } from "@/data/demoScenarios";
+import { showSuccess } from "@/utils/toast";
+import RiskIntelligenceCard from "@/components/RiskIntelligenceCard";
+import BlastRadius from "@/components/BlastRadius";
+import FindingsCard from "@/components/FindingsCard";
+import { calculateRiskScore, RiskScoreResult } from "@/utils/riskScoring";
+import type { DemoScenario as DemoScenarioType } from "@/data/demoScenarios";
+
+const getDependencyData = (result: DemoScenarioType): { changedComponent: string; callers: string[]; highImpactCallers: string[]; criticalPaths: string[]; } => {
+  return result.dependencyData;
+};
+
+interface AnalysisResultsCardProps {
+  result: DemoScenarioType;
+  onSaveToHistory: () => void;
+  changedFiles?: string[];
+  addedFiles?: string[];
+  deletedFiles?: string[];
+  modifiedFiles?: string[];
+  testFileCount?: number;
+  codeFileCount?: number;
+  hasTestFiles?: boolean;
+}
+
+const AnalysisResultsCard = ({ result, onSaveToHistory, changedFiles = [], addedFiles = [], deletedFiles = [], modifiedFiles = [], testFileCount = 0, codeFileCount = 0, hasTestFiles = false, }: AnalysisResultsCardProps) => {
+  const getRiskColor = (level: string) => {
+    switch (level) {
+      case "LOW": return "text-success";
+      case "MEDIUM": return "text-warning";
+      case "HIGH": case "CRITICAL": return "text-destructive";
+      default: return "text-foreground";
+    }
+  };
+
+  const getRiskBadgeVariant = (level: string) => {
+    switch (level) {
+      case "LOW": return "default";
+      case "MEDIUM": return "secondary";
+      case "HIGH": case "CRITICAL": return "destructive";
+      default: return "default";
+    }
+  };
+
+  const getRiskIcon = (level: string) => {
+    switch (level) {
+      case "LOW": return <CheckCircle className="h-4 w-4 text-success" />;
+      case "MEDIUM": return <AlertTriangle className="h-4 w-4 text-warning" />;
+      case "HIGH": case "CRITICAL": return <AlertCircle className="h-4 w-4 text-destructive" />;
+      default: return null;
+    }
+  };
+
+  const getBlastRadiusExplanation = (): string => {
+    const { blastRadius } = result;
+    if (blastRadius.level === "HIGH") {
+      return `This change has a high potential blast radius because the modified ${blastRadius.changedComponent} is used by multiple business-critical flows.`;
+    } else if (blastRadius.level === "MEDIUM") {
+      return `This change has a moderate blast radius with some downstream dependencies that could be affected.`;
+    } else {
+      return `The changed component appears isolated and has limited downstream impact.`;
+    }
+  };
+
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <h3>Analysis Results</h3>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-muted-foreground">Release Risk Score</h3>
+              <p className="text-2xl font-bold">{result.riskScore} / 100</p>
+            </div>
+            <div className={`text-2xl font-bold ${getRiskColor(result.riskLevel)}`}>
+              {result.riskLevel}
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-muted-foreground">Risk Breakdown</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Change Complexity</span>
+              <span>{result.riskBreakdown.complexity}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Business Impact</span>
+              <span>{result.riskBreakdown.impact}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Reachability</span>
+              <span>{result.riskBreakdown.reachability}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Test Coverage (Inverse)</span>
+              <span>{100 - result.riskBreakdown.testCoverage}</span>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <h3 className="text-lg font-medium text-muted-foreground">Risk Summary</h3>
+          <p>{result.description}</p>
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-end space-x-3">
+        <Button variant="outline" onClick={onSaveToHistory}> Save to History </Button>
+        <Button onClick={() => { showSuccess("Analysis saved! Check History tab to view."); }} > View in History </Button>
+      </CardFooter>
+      <BlastRadius blastRadius={result.blastRadius} dependencyData={getDependencyData(result)} explanation={getBlastRadiusExplanation()} />
+    </Card>
+  );
+};
+
+const Analyze = () => {
+  const [selectedScenario, setSelectedScenario] = useState<DemoScenarioType | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    import("@/data/demoScenarios").then((module) => {
+      const scenarios = module.default;
+      setSelectedScenario(scenarios[0]);
+      setLoading(false);
+    });
+  }, []);
+  const handleSaveToHistory = () => {
+    if (selectedScenario) {
+      showSuccess("Analysis saved! Check History tab to view.");
+    }
+  };
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="inline-block animate-spin rounded-full border-4 border-primary/20 border-primary w-12 h-12"></div>
+        <p className="mt-4 text-muted-foreground">Loading analysis...</p>
+      </div>
+    );
+  }
+  if (!selectedScenario) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">No scenario selected</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2">
+          <AnalysisResultsCard result={selectedScenario} onSaveToHistory={handleSaveToHistory} />
+        </div>
+        <div className="space-y-6">
+          <RiskIntelligenceCard components={selectedScenario.riskBreakdown} overallScore={selectedScenario.riskScore} riskLevel={selectedScenario.riskLevel} explanation={selectedScenario.explanation} />
+          <BlastRadius blastRadius={selectedScenario.blastRadius} dependencyData={getDependencyData(selectedScenario)} explanation={selectedScenario.description} />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-6">
+        <FindingsCard findings={selectedScenario.findings} />
+      </div>
+    </div>
+  );
+};
+export default Analyze;
