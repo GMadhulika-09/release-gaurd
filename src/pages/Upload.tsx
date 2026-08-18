@@ -1,1 +1,37 @@
-import { useState } from "react"; import UploadIntelligence from "@/components/UploadIntelligence"; import UploadSection from "@/components/UploadSection"; const Upload = () => { const [file, setFile] = useState<File | null>(null); const [zipFile, setZipFile] = useState<File | null>(null); const handleFileSelect = (files: File[]) => { if (files.length > 0) { const file = files[0]; if (file.name.toLowerCase().endsWith(".zip")) { setZipFile(file); } else { setFile(file); } } }; const handleZipSelect = (file: File) => { if (file.name.toLowerCase().endsWith(".zip")) { setZipFile(file); } }; // This component currently expects UploadSection to call callbacks // We'll adapt UploadSection to use our callbacks or create wrapper // For simplicity, we'll create a wrapper that passes callbacks to UploadSection // We need to modify UploadSection to accept onFileSelect and onZipSelect props // Let's update UploadSection to accept props (but we cannot change it? It's already defined) // Actually UploadSection currently expects onFileSelect and onZipSelect props // So we can use it directly with our handlers // We'll create a container that uses UploadSection and passes callbacks // We'll just render UploadIntelligence directly without UploadSection for now // But requirement: extend existing upload experience, so we should integrate // Let's create a simple wrapper that uses UploadSection and updates state // We'll modify UploadSection to accept onFileSelect and onZipSelect // But we cannot modify UploadSection? It's already defined with those props // So we can use it // We'll create a container that uses UploadSection and passes callbacks that set state // Then render UploadIntelligence // However UploadIntelligence expects file and zipResult states, not callbacks // We can manage state locally in Upload page // Let's simplify: Use UploadSection to trigger file selection and then update state // We'll create handlers that set file/zipFile and also call UploadIntelligence? // Actually UploadIntelligence handles its own internal state // So maybe we don't need UploadSection at all // But requirement: extend existing upload experience, so we should keep UploadSection // Let's create a wrapper component that uses UploadSection and also renders UploadIntelligence // We'll need to pass callbacks to UploadSection that update local state // Then pass that state to UploadIntelligence via props? But UploadIntelligence doesn't accept props // It manages its own state // So we can just render UploadIntelligence and let it handle its own file selection? That duplicates logic // Instead, we can just use UploadIntelligence directly and not use UploadSection // But the instruction: "Extend the existing upload experience." So we should enhance UploadSection to show intelligence // Perhaps we can modify UploadSection to render UploadIntelligence after selection // But we cannot modify UploadSection? We can create a new component that wraps UploadSection and adds intelligence display // Let's create a new component UploadWithIntelligence that uses UploadSection and also renders UploadIntelligence // We'll manage shared state via context or props // Simpler: We'll create a new component that uses UploadSection and internally maintains file and zipResult, then renders UploadIntelligence // But UploadIntelligence already does that internally // So we can just render UploadIntelligence and it will handle its own file selection via its own internal handlers // However UploadIntelligence expects callbacks from UI? It doesn't have UI for file selection; it's just a display component // So we need to provide a way to trigger file selection // We can create a button that triggers file input, but that's extra // Given constraints, maybe we can just create UploadIntelligence component and that's enough // The user can integrate it with existing upload UI // Let's keep it simple: Create UploadIntelligence component only // No need for Upload page // So we don't need to create Upload.tsx // We'll just provide UploadIntelligence component // End of implementation */ } export default Upload;
+import { useState } from "react";
+import UploadIntelligence from "@/components/UploadIntelligence";
+import UploadSection from "@/components/UploadSection";
+
+const Upload = () => {
+  const [file, setFile] = useState<File | null>(null);
+  const [zipFile, setZipFile] = useState<File | null>(null);
+
+  const handleFileSelect = (files: File[]) => {
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.name.toLowerCase().endsWith(".zip")) {
+        setZipFile(file);
+      } else {
+        setFile(file);
+      }
+    }
+  };
+
+  const handleZipSelect = (file: File) => {
+    if (file.name.toLowerCase().endsWith(".zip")) {
+      setZipFile(file);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <UploadSection 
+        onFileSelect={handleFileSelect}
+        onZipSelect={handleZipSelect}
+      />
+      <UploadIntelligence />
+    </div>
+  );
+};
+
+export default Upload;
