@@ -170,8 +170,10 @@ const Analyze = () => {
   // Note: In a real app, this would be handled via async/await or useEffect
   // For this fix, we'll assume the scenario is loaded or use a placeholder
   const [scenario, setScenario] = useState<DemoScenario>(() => {
-    // This is a simplified way to handle the async import for the demo
-    return (typeof window!== 'undefined'? (window as any).demoScenario || ({} as DemoScenario)) : {} as DemoScenario);
+    if (typeof window !== "undefined") {
+      return (window as any).demoScenario || ({} as DemoScenario);
+    }
+    return {} as DemoScenario;
   });
 
   // Since I cannot use async in useState directly without useEffect, 
