@@ -21,7 +21,7 @@ const History = () => {
     const loadData = () => {
       setLoading(true);
       try {
-        // Load analysis history
+        // Load analysis history  
         const saved = localStorage.getItem("releaseGuardHistory");
         const parsed = saved ? JSON.parse(saved) : [];
         // Sort by timestamp descending (newest first)
@@ -204,71 +204,72 @@ const History = () => {
                   ))}
                 </CardContent>
               </Card>
-            )}
-          </TabsContent>
+            </div>
+          )}
+        </TabsContent>
 
-          <TabsContent value="comparisons" className="space-y-6">
-            {comparisonHistory.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-5xl text-muted-foreground mb-4">📊</div>
-                <h3 className="text-lg font-medium text-muted-foreground">No comparisons yet</h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Compare releases to see history here.
+        <TabsContent value="comparisons" className="space-y-6">
+          {comparisonHistory.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-5xl text-muted-foreground mb-4">📊</div>
+              <h3 className="text-lg font-medium text-muted-foreground">No comparisons yet</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                Compare releases to see history here.
+              </p>
+            </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center space-x-2">
+                    <GitCompare className="h-4 w-4" />
+                    <h3>Comparison History</h3>
+                  </CardTitle>
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearComparisonHistory}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear All
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Showing {comparisonHistory.length} {comparisonHistory.length === 1 ? "comparison" : "comparisons"}
                 </p>
-              </div>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center space-x-2">
-                      <GitCompare className="h-4 w-4" />
-                      <h3>Comparison History</h3>
-                    </CardTitle>
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      onClick={handleClearComparisonHistory}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Clear All
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {comparisonHistory.length} {comparisonHistory.length === 1 ? "comparison" : "comparisons"}
-                  </p>
-                  
-                  <div className="space-y-3">
-                    {comparisonHistory.map((entry: any) => (
-                      <ComparisonHistoryEntry 
-                        key={entry.id} 
-                        entry={entry} 
-                        onDelete={handleDeleteComparisonEntry} 
-                        onSelect={handleSelectEntry}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+                
+                <div className="space-y-3">
+                  {comparisonHistory.map((entry: any) => (
+                    <ComparisonHistoryEntry 
+                      key={entry.id} 
+                      entry={entry} 
+                      onDelete={handleDeleteComparisonEntry} 
+                      onSelect={handleSelectEntry}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
-        {/* Entry Details Section */}
-        {selectedEntry && (
-          <div className="mt-8">
-            <PreviousAnalysisContext 
-              riskScore={selectedEntry.riskScore} 
-              riskLevel={selectedEntry.riskLevel} 
-              findingsCount={selectedEntry.findingsCount} 
-              recommendedTestsCount={selectedEntry.recommendedTestsCount} 
-              releaseDecision={selectedEntry.releaseDecision}
-            />
-          </div>
-        )}
-      </div>
-    );
-  };
+      {/* Entry Details Section */}
+      {selectedEntry && (
+        <div className="mt-8">
+          <PreviousAnalysisContext 
+            riskScore={selectedEntry.riskScore} 
+            riskLevel={selectedEntry.riskLevel} 
+            findingsCount={selectedEntry.findingsCount} 
+            recommendedTestsCount={selectedEntry.recommendedTestsCount} 
+            releaseDecision={selectedEntry.releaseDecision}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
 
-  export default History;
+export default History;
