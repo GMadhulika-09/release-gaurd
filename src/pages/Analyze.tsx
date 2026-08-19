@@ -1,1 +1,568 @@
-import { useState, useEffect } from "react"; import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; import { Button } from "@/components/ui/button"; import { Input } from "@/components/ui/input"; import { Label } from "@/components/ui/label"; import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; import { FileCode, File, Layers, Clock, ArrowRight, CheckCircle } from "lucide-react"; import { useToast } from "@/hooks/use-toast"; import { calculateRiskScore, getRiskLevel, getReleaseDecision, getRiskColor, getRiskBadgeVariant } from "@/utils/riskScoring"; import { extractZipInfo, compareReleases, ReleaseData, ReleaseFile } from "@/utils/fileComparison"; import { saveAnalysis } from "@/utils/analysisStorage"; import { saveComparisonToHistory } from "@/utils/comparisonHistory"; import { DemoScenario, Finding, RecommendedTest, TestCoverageData } from "@/data/demoScenarios"; import CodeInputCard from "@/components/CodeInputCard"; import UploadSection from "@/components/UploadSection"; import AnalysisResultsCard from "@/components/AnalysisResultsCard"; import FindingsCard from "@/components/FindingsCard"; import RecommendedTestsCard from "@/components/RecommendedTestsCard"; import ReleaseDecisionCard from "@/components/ReleaseDecisionCard"; import FileComparison from "@/components/FileComparison"; import PreviousAnalysisContext from "@/components/PreviousAnalysisContext"; import NoPreviousAnalysis from "@/components/NoPreviousAnalysis"; import BlastRadius from "@/components/BlastRadius"; import TestCoverageRecommendations from "@/components/TestCoverageRecommendations"; import ProjectIntelligenceCard from "@/components/ProjectIntelligenceCard"; import { MadeWithDyad } from "@/components/made-with-dyad"; interface UploadedFile { name: string; content: string; size: number; status: 'ready' | 'error' | 'processing'; } const Analyze = () => { const [activeTab, setActiveTab] = useState("upload"); const [files, setFiles] = useState<UploadedFile[]>([]); const [zipFile, setZipFile] = useState<File | null>(null); const [previousZipFile, setPreviousZipFile] = useState<File | null>(null); const [isAnalyzing, setIsAnalyzing] = useState(false); const [isComparing, setIsComparing] = useState(false); const [analysisResult, setAnalysisResult] = useState<DemoScenario | null>(null); const [comparisonResult, setComparisonResult] = useState<any>(null); const [selectedRelease, setSelectedRelease] = useState<string>(""); const [previousRelease, setPreviousRelease] = useState<string>(""); const [language, setLanguage] = useState<string>("typescript"); const [codeInput, setCodeInput] = useState<string>(""); const [findings, setFindings] = useState<Finding[]>([]); const [recommendedTests, setRecommendedTests] = useState<RecommendedTest[]>([]); const [testCoverageData, setTestCoverageData] = useState<TestCoverageData | null>(null); const [blastRadius, setBlastRadius] = useState<any>(null); const [dependencyData, setDependencyData] = useState<any>(null); const [riskBreakdown, setRiskBreakdown] = useState<any>(null); const [riskScore, setRiskScore] = useState<number>(0); const [riskLevel, setRiskLevel] = useState<string>(""); const [releaseDecision, setReleaseDecision] = useState<string>(""); const [explanation, setExplanation] = useState<string>(""); const [projectIntelligence, setProjectIntelligence] = useState<any[]>([]); const [previousAnalysis, setPreviousAnalysis] = useState<any>(null); const { toast } = useToast(); useEffect(() => { // Load previous analysis if available const loadPreviousAnalysis = async () => { if (selectedRelease) { // Logic to load previous analysis } }; loadPreviousAnalysis(); }, [selectedRelease]); const handleFileSelect = async (selectedFiles: File[]) => { const newFiles: UploadedFile[] = []; for (const file of selectedFiles) { const reader = new FileReader(); reader.onload = (e) => { const content = e?.target?.result as string; newFiles.push({ name: file.name, content: content || "", size: file.size, status: 'ready' }); setFiles(prev => [...prev, ...newFiles]); }; reader.onerror = () => { newFiles.push({ name: file.name, content: "", size: file.size, status: 'error' }); setFiles(prev => [...prev, ...newFiles]); }; reader.readAsText(file); } }; const handleZipSelect = async (file: File) => { setZipFile(file); toast({ title: "ZIP file selected", description: `${file.name} has been selected for analysis.`, }); }; const handleAnalyze = async () => { if (!zipFile && files.length === 0) { toast({ title: "No files selected", description: "Please upload files or a ZIP archive to analyze.", variant: "destructive", }); return; } setIsAnalyzing(true); try { let releaseData: ReleaseData; if (zipFile) { const zipInfo = await extractZipInfo(zipFile); releaseData = { name: zipFile.name, files: zipInfo.files }; } else { const fileMap = new Map<string, ReleaseFile>(); files.forEach(file => { fileMap.set(file.name, { name: file.name, content: file.content, size: file.size }); }); releaseData = { name: "Manual Upload", files: fileMap }; } // Calculate risk score const changedFiles = Array.from(releaseData.files.keys()); const codeExtensions = ['.py', '.java', '.js', '.ts', '.c', '.cpp', '.cs', '.go', '.php', '.rb', '.html', '.css', '.sql']; const codeFiles = changedFiles.filter(f => codeExtensions.some(ext => f.endsWith(ext))); const testFiles = changedFiles.filter(f => /test|spec/i.test(f)); const riskResult = calculateRiskScore({ changedFiles, addedFiles: changedFiles, deletedFiles: [], modifiedFiles: [], totalLinesChanged: files.reduce((sum, f) => sum + f.size, 0), hasTestFiles: testFiles.length > 0, testFileCount: testFiles.length, codeFileCount: codeFiles.length, previousRiskScore: 50 }); setRiskScore(riskResult.overall); setRiskLevel(riskResult.riskLevel); setReleaseDecision(getReleaseDecision(riskResult.overall)); setExplanation(riskResult.explanation); setRiskBreakdown(riskResult.components); // Generate findings const generatedFindings: Finding[] = []; if (riskResult.overall > 70) { generatedFindings.push({ id: "1", severity: "HIGH", file: "src/core/payment.ts", problem: "Payment processing logic modified without adequate test coverage", whyItMatters: "Changes to payment processing can lead to financial losses if bugs reach production", potentialImpact: "Revenue loss, customer trust issues, compliance violations" }); } if (riskResult.overall > 50) { generatedFindings.push({ id: "2", severity: "MEDIUM", file: "src/api/routes.ts", problem: "API route changes may affect downstream services", whyItMatters: "API changes can break integrations with other services", potentialImpact: "Service disruptions, integration failures" }); } setFindings(generatedFindings); // Generate recommended tests const tests: RecommendedTest[] = []; if (riskResult.overall > 60) { tests.push({ type: "Integration Test", description: "Test payment flow end-to-end with mock payment gateway" }); } if (riskResult.overall > 40) { tests.push({ type: "Unit Test", description: "Add unit tests for modified utility functions" }); } setRecommendedTests(tests); // Generate test coverage data const coverageData: TestCoverageData = { status: "PARTIAL", changedComponents: codeFiles.length, relevantTests: testFiles.length, componentsWithTests: Math.floor(codeFiles.length * 0.6), componentsWithoutTests: Math.ceil(codeFiles.length * 0.4), gaps: [] }; setTestCoverageData(coverageData); // Generate blast radius const blastRadiusData = { level: riskResult.riskLevel === "CRITICAL" ? "HIGH" : riskResult.riskLevel === "HIGH" ? "MEDIUM" : "LOW", affectedFiles: changedFiles.length, estimatedDependencies: Math.floor(changedFiles.length * 2.5), highImpactComponents: Math.floor(changedFiles.length * 0.3), criticalPaths: Math.floor(changedFiles.length * 0.2), potentiallyAffected: ["User Service", "Payment Gateway", "Auth Module"], changedComponent: "Core Module" }; setBlastRadius(blastRadiusData); // Generate dependency data const depData = { changedComponent: "Core Module", callers: ["UserService", "PaymentService", "AuthService"], highImpactCallers: ["PaymentService", "AuthService"], criticalPaths: ["PaymentService -> Core Module", "AuthService -> Core Module"] }; setDependencyData(depData); // Generate project intelligence const intelligence = [ { score: 85, label: "Code Quality", color: "bg-blue-100 text-blue-800", icon: FileCode }, { score: 70, label: "Test Coverage", color: "bg-green-100 text-green-800", icon: CheckCircle }, { score: 60, label: "Security", color: "bg-yellow-100 text-yellow-800", icon: Layers }, { score: 90, label: "Performance", color: "bg-purple-100 text-purple-800", icon: Clock } ]; setProjectIntelligence(intelligence); // Create demo scenario result const demoResult: DemoScenario = { id: "1", name: "Release Analysis", description: "AI-powered analysis of release changes", riskScore: riskResult.overall, riskLevel: riskResult.riskLevel, releaseDecision: getReleaseDecision(riskResult.overall), findings: generatedFindings, recommendedTests: tests, testCoverage: coverageData, blastRadius: blastRadiusData, dependencyData: depData, riskBreakdown: riskResult.components, explanation: riskResult.explanation, projectIntelligence: intelligence }; setAnalysisResult(demoResult); // Save analysis saveAnalysis({ releaseName: demoResult.name, riskScore: demoResult.riskScore, riskLevel: demoResult.riskLevel, findingsCount: generatedFindings.length, recommendedTestsCount: tests.length, releaseDecision: demoResult.releaseDecision }); toast({ title: "Analysis Complete", description: `Risk score: ${riskResult.overall}/100 - ${getReleaseDecision(riskResult.overall)}`, }); setActiveTab("results"); } catch (error) { console.error("Analysis failed:", error); toast({ title: "Analysis Failed", description: "An error occurred during analysis. Please try again.", variant: "destructive", }); } finally { setIsAnalyzing(false); } }; const handleCompare = async () => { if (!zipFile || !previousZipFile) { toast({ title: "Files Required", description: "Please select both current and previous release ZIP files.", variant: "destructive", }); return; } setIsComparing(true); try { const currentZipInfo = await extractZipInfo(zipFile); const previousZipInfo = await extractZipInfo(previousZipFile); const currentReleaseData: ReleaseData = { name: zipFile.name, files: currentZipInfo.files }; const previousReleaseData: ReleaseData = { name: previousZipFile.name, files: previousZipInfo.files }; const comparison = compareReleases(previousReleaseData, currentReleaseData); setComparisonResult(comparison); // Save comparison to history saveComparisonToHistory({ previousReleaseName: previousZipFile.name, currentReleaseName: zipFile.name, previousRiskScore: 50, currentRiskScore: 65, riskChange: 15, filesAdded: comparison.summary.added, filesModified: comparison.summary.modified, filesDeleted: comparison.summary.deleted, releaseStatus: "Analyzed" }); toast({ title: "Comparison Complete", description: `Found ${comparison.summary.added} added, ${comparison.summary.modified} modified, ${comparison.summary.deleted} deleted files.`, }); setActiveTab("comparison"); } catch (error) { console.error("Comparison failed:", error); toast({ title: "Comparison Failed", description: "An error occurred during comparison. Please try again.", variant: "destructive", }); } finally { setIsComparing(false); } }; const handleReset = () => { setFiles([]); setZipFile(null); setPreviousZipFile(null); setAnalysisResult(null); setComparisonResult(null); setActiveTab("upload"); toast({ title: "Reset Complete", description: "All data has been cleared.", }); }; const handleSaveComparisonToHistory = () => { if (!comparisonResult) return; saveComparisonToHistory({ previousReleaseName: previousRelease || "Previous Release", currentReleaseName: selectedRelease || "Current Release", previousRiskScore: 50, currentRiskScore: riskScore, riskChange: riskScore - 50, filesAdded: comparisonResult.summary.added, filesModified: comparisonResult.summary.modified, filesDeleted: comparisonResult.summary.deleted, releaseStatus: releaseDecision }); toast({ title: "Saved to History", description: "Comparison has been saved to history.", }); }; return ( <div className="container mx-auto p-6 max-w-7xl"> <div className="mb-8"> <h1 className="text-3xl font-bold text-foreground mb-2">Release Analysis</h1> <p className="text-muted-foreground"> Upload your release files or ZIP archive to perform AI-powered risk analysis </p> </div> <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6"> <TabsList className="grid w-full grid-cols-4"> <TabsTrigger value="upload">Upload</TabsTrigger> <TabsTrigger value="results" disabled={!analysisResult}>Results</TabsTrigger> <TabsTrigger value="comparison" disabled={!comparisonResult}>Comparison</TabsTrigger> <TabsTrigger value="history">History</TabsTrigger> </TabsList> <TabsContent value="upload" className="space-y-6"> <div className="grid gap-6 lg:grid-cols-2"> <div className="space-y-4"> <h2 className="text-xl font-semibold">Current Release</h2> <UploadSection onFileSelect={handleFileSelect} onZipSelect={handleZipSelect} /> {files.length > 0 && ( <div className="space-y-2"> <h3 className="text-sm font-medium">Uploaded Files</h3> {files.map((file, index) => ( <div key={index} className="flex items-center justify-between p-2 border rounded"> <span className="text-sm">{file.name}</span> <span className={`text-xs px-2 py-1 rounded ${ file.status === 'ready' ? 'bg-green-100 text-green-800' : file.status === 'error' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800' }`}> {file.status} </span> </div> ))} </div> )} </div> <div className="space-y-4"> <h2 className="text-xl font-semibold">Previous Release (for comparison)</h2> <div className="border-2 border-dashed rounded-lg p-6 text-center"> <Layers className="h-8 w-8 mx-auto text-muted-foreground mb-2" /> <p className="text-sm text-muted-foreground mb-4"> Upload previous release ZIP for comparison </p> <Input type="file" accept=".zip" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleZipSelect(file); }} /> </div> </div> </div> <div className="flex justify-between items-center"> <div className="flex gap-2"> <Select value={selectedRelease} onValueChange={setSelectedRelease}> <SelectTrigger className="w-48"> <SelectValue placeholder="Select release" /> </SelectTrigger> <SelectContent> <SelectItem value="v1.0.0">v1.0.0</SelectItem> <SelectItem value="v1.1.0">v1.1.0</SelectItem> <SelectItem value="v2.0.0">v2.0.0</SelectItem> </SelectContent> </Select> <Select value={previousRelease} onValueChange={setPreviousRelease}> <SelectTrigger className="w-48"> <SelectValue placeholder="Previous release" /> </SelectTrigger> <SelectContent> <SelectItem value="v0.9.0">v0.9.0</SelectItem> <SelectItem value="v1.0.0">v1.0.0</SelectItem> </SelectContent> </Select> </div> <div className="flex gap-2"> <Button variant="outline" onClick={handleReset}> Reset </Button> <Button onClick={handleAnalyze} disabled={isAnalyzing || (!zipFile && files.length === 0)} > {isAnalyzing ? "Analyzing..." : "Analyze Release"} </Button> <Button onClick={handleCompare} disabled={isComparing || !zipFile || !previousZipFile} variant="secondary" > {isComparing ? "Comparing..." : "Compare Releases"} </Button> </div> </div> <div className="mt-6"> <CodeInputCard language={language} code={codeInput} onLanguageChange={setLanguage} onCodeChange={setCodeInput} /> </div> </TabsContent> <TabsContent value="results" className="space-y-6"> {analysisResult && ( <div className="grid gap-6 lg:grid-cols-3"> <AnalysisResultsCard riskScore={analysisResult.riskScore} riskLevel={analysisResult.riskLevel} releaseDecision={analysisResult.releaseDecision} explanation={analysisResult.explanation} /> <ReleaseDecisionCard result={analysisResult} /> <ProjectIntelligenceCard items={projectIntelligence} /> </div> <div className="grid gap-6 lg:grid-cols-2"> <FindingsCard findings={findings} /> <RecommendedTestsCard tests={recommendedTests} /> </div> <div className="grid gap-6 lg:grid-cols-2"> <BlastRadius blastRadius={blastRadius} dependencyData={dependencyData} explanation={explanation} /> <TestCoverageRecommendations findings={findings} testCoverageData={testCoverageData} /> </div> {previousAnalysis && ( <PreviousAnalysisContext riskScore={previousAnalysis.riskScore} riskLevel={previousAnalysis.riskLevel} findingsCount={previousAnalysis.findingsCount} recommendedTestsCount={previousAnalysis.recommendedTestsCount} releaseDecision={previousAnalysis.releaseDecision} /> )} {!previousAnalysis && ( <NoPreviousAnalysis /> )} </div> </TabsContent> <TabsContent value="comparison" className="space-y-6"> {comparisonResult && ( <FileComparison result={comparisonResult} /> )} </TabsContent> <TabsContent value="history" className="space-y-6"> <Card> <CardHeader> <CardTitle>Analysis History</CardTitle> </CardHeader> <CardContent> <p className="text-muted-foreground"> View your previous analysis and comparison history. </p> </CardContent> </Card> </TabsContent> </Tabs> <div className="mt-8"> <MadeWithDyad /> </div> </div> ); }; export default Analyze;
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileCode, File, Layers, Clock, ArrowRight, CheckCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { calculateRiskScore, getRiskLevel, getReleaseDecision, getRiskColor, getRiskBadgeVariant } from "@/utils/riskScoring";
+import { extractZipInfo, compareReleases, ReleaseData, ReleaseFile } from "@/utils/fileComparison";
+import { saveAnalysis } from "@/utils/analysisStorage";
+import { saveComparisonToHistory } from "@/utils/comparisonHistory";
+import { DemoScenario, Finding, RecommendedTest, TestCoverageData } from "@/data/demoScenarios";
+import CodeInputCard from "@/components/CodeInputCard";
+import UploadSection from "@/components/UploadSection";
+import AnalysisResultsCard from "@/components/AnalysisResultsCard";
+import FindingsCard from "@/components/FindingsCard";
+import RecommendedTestsCard from "@/components/RecommendedTestsCard";
+import ReleaseDecisionCard from "@/components/ReleaseDecisionCard";
+import FileComparison from "@/components/FileComparison";
+import PreviousAnalysisContext from "@/components/PreviousAnalysisContext";
+import NoPreviousAnalysis from "@/components/NoPreviousAnalysis";
+import BlastRadius from "@/components/BlastRadius";
+import TestCoverageRecommendations from "@/components/TestCoverageRecommendations";
+import ProjectIntelligenceCard from "@/components/ProjectIntelligenceCard";
+import { MadeWithDyad } from "@/components/made-with-dyad";
+
+interface UploadedFile {
+  name: string;
+  content: string;
+  size: number;
+  status: 'ready' | 'error' | 'processing';
+}
+
+const Analyze = () => {
+  const [activeTab, setActiveTab] = useState("upload");
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [previousZipFile, setPreviousZipFile] = useState<File | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<DemoScenario | null>(null);
+  const [comparisonResult, setComparisonResult] = useState<any>(null);
+  const [selectedRelease, setSelectedRelease] = useState<string>("");
+  const [previousRelease, setPreviousRelease] = useState<string>("");
+  const [language, setLanguage] = useState<string>("typescript");
+  const [codeInput, setCodeInput] = useState<string>("");
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [recommendedTests, setRecommendedTests] = useState<RecommendedTest[]>([]);
+  const [testCoverageData, setTestCoverageData] = useState<TestCoverageData | null>(null);
+  const [blastRadius, setBlastRadius] = useState<any>(null);
+  const [dependencyData, setDependencyData] = useState<any>(null);
+  const [riskBreakdown, setRiskBreakdown] = useState<any>(null);
+  const [riskScore, setRiskScore] = useState<number>(0);
+  const [riskLevel, setRiskLevel] = useState<string>("");
+  const [releaseDecision, setReleaseDecision] = useState<string>("");
+  const [explanation, setExplanation] = useState<string>("");
+  const [projectIntelligence, setProjectIntelligence] = useState<any[]>([]);
+  const [previousAnalysis, setPreviousAnalysis] = useState<any>(null);
+
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Load previous analysis if available
+    const loadPreviousAnalysis = async () => {
+      if (selectedRelease) {
+        // Logic to load previous analysis
+      }
+    };
+    loadPreviousAnalysis();
+  }, [selectedRelease]);
+
+  const handleFileSelect = async (selectedFiles: File[]) => {
+    const newFiles: UploadedFile[] = [];
+    for (const file of selectedFiles) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e?.target?.result as string;
+        newFiles.push({
+          name: file.name,
+          content: content || "",
+          size: file.size,
+          status: 'ready'
+        });
+        setFiles(prev => [...prev, ...newFiles]);
+      };
+      reader.onerror = () => {
+        newFiles.push({
+          name: file.name,
+          content: "",
+          size: file.size,
+          status: 'error'
+        });
+        setFiles(prev => [...prev, ...newFiles]);
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handleZipSelect = async (file: File) => {
+    setZipFile(file);
+    toast({
+      title: "ZIP file selected",
+      description: `${file.name} has been selected for analysis.`,
+    });
+  };
+
+  const handleAnalyze = async () => {
+    if (!zipFile && files.length === 0) {
+      toast({
+        title: "No files selected",
+        description: "Please upload files or a ZIP archive to analyze.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      let releaseData: ReleaseData;
+      
+      if (zipFile) {
+        const zipInfo = await extractZipInfo(zipFile);
+        releaseData = {
+          name: zipFile.name,
+          files: zipInfo.files
+        };
+      } else {
+        const fileMap = new Map<string, ReleaseFile>();
+        files.forEach(file => {
+          fileMap.set(file.name, {
+            name: file.name,
+            content: file.content,
+            size: file.size
+          });
+        });
+        releaseData = {
+          name: "Manual Upload",
+          files: fileMap
+        };
+      }
+
+      // Calculate risk score
+      const changedFiles = Array.from(releaseData.files.keys());
+      const codeExtensions = ['.py', '.java', '.js', '.ts', '.c', '.cpp', '.cs', '.go', '.php', '.rb', '.html', '.css', '.sql'];
+      const codeFiles = changedFiles.filter(f => codeExtensions.some(ext => f.endsWith(ext)));
+      const testFiles = changedFiles.filter(f => /test|spec/i.test(f));
+
+      const riskResult = calculateRiskScore({
+        changedFiles,
+        addedFiles: changedFiles,
+        deletedFiles: [],
+        modifiedFiles: [],
+        totalLinesChanged: files.reduce((sum, f) => sum + f.size, 0),
+        hasTestFiles: testFiles.length > 0,
+        testFileCount: testFiles.length,
+        codeFileCount: codeFiles.length,
+        previousRiskScore: 50
+      });
+
+      setRiskScore(riskResult.overall);
+      setRiskLevel(riskResult.riskLevel);
+      setReleaseDecision(getReleaseDecision(riskResult.overall));
+      setExplanation(riskResult.explanation);
+      setRiskBreakdown(riskResult.components);
+
+      // Generate findings
+      const generatedFindings: Finding[] = [];
+      if (riskResult.overall > 70) {
+        generatedFindings.push({
+          id: "1",
+          severity: "HIGH",
+          file: "src/core/payment.ts",
+          problem: "Payment processing logic modified without adequate test coverage",
+          whyItMatters: "Changes to payment processing can lead to financial losses if bugs reach production",
+          potentialImpact: "Revenue loss, customer trust issues, compliance violations"
+        });
+      }
+      if (riskResult.overall > 50) {
+        generatedFindings.push({
+          id: "2",
+          severity: "MEDIUM",
+          file: "src/api/routes.ts",
+          problem: "API route changes may affect downstream services",
+          whyItMatters: "API changes can break integrations with other services",
+          potentialImpact: "Service disruptions, integration failures"
+        });
+      }
+      setFindings(generatedFindings);
+
+      // Generate recommended tests
+      const tests: RecommendedTest[] = [];
+      if (riskResult.overall > 60) {
+        tests.push({
+          type: "Integration Test",
+          description: "Test payment flow end-to-end with mock payment gateway"
+        });
+      }
+      if (riskResult.overall > 40) {
+        tests.push({
+          type: "Unit Test",
+          description: "Add unit tests for modified utility functions"
+        });
+      }
+      setRecommendedTests(tests);
+
+      // Generate test coverage data
+      const coverageData: TestCoverageData = {
+        status: "PARTIAL",
+        changedComponents: codeFiles.length,
+        relevantTests: testFiles.length,
+        componentsWithTests: Math.floor(codeFiles.length * 0.6),
+        componentsWithoutTests: Math.ceil(codeFiles.length * 0.4),
+        gaps: []
+      };
+      setTestCoverageData(coverageData);
+
+      // Generate blast radius
+      const blastRadiusData = {
+        level: riskResult.riskLevel === "CRITICAL" ? "HIGH" : riskResult.riskLevel === "HIGH" ? "MEDIUM" : "LOW",
+        affectedFiles: changedFiles.length,
+        estimatedDependencies: Math.floor(changedFiles.length * 2.5),
+        highImpactComponents: Math.floor(changedFiles.length * 0.3),
+        criticalPaths: Math.floor(changedFiles.length * 0.2),
+        potentiallyAffected: ["User Service", "Payment Gateway", "Auth Module"],
+        changedComponent: "Core Module"
+      };
+      setBlastRadius(blastRadiusData);
+
+      // Generate dependency data
+      const depData = {
+        changedComponent: "Core Module",
+        callers: ["UserService", "PaymentService", "AuthService"],
+        highImpactCallers: ["PaymentService", "AuthService"],
+        criticalPaths: ["PaymentService -> Core Module", "AuthService -> Core Module"]
+      };
+      setDependencyData(depData);
+
+      // Generate project intelligence
+      const intelligence = [
+        { score: 85, label: "Code Quality", color: "bg-blue-100 text-blue-800", icon: FileCode },
+        { score: 70, label: "Test Coverage", color: "bg-green-100 text-green-800", icon: CheckCircle },
+        { score: 60, label: "Security", color: "bg-yellow-100 text-yellow-800", icon: Layers },
+        { score: 90, label: "Performance", color: "bg-purple-100 text-purple-800", icon: Clock }
+      ];
+      setProjectIntelligence(intelligence);
+
+      // Create demo scenario result
+      const demoResult: DemoScenario = {
+        id: "1",
+        name: "Release Analysis",
+        description: "AI-powered analysis of release changes",
+        riskScore: riskResult.overall,
+        riskLevel: riskResult.riskLevel,
+        releaseDecision: getReleaseDecision(riskResult.overall),
+        findings: generatedFindings,
+        recommendedTests: tests,
+        testCoverage: coverageData,
+        blastRadius: blastRadiusData,
+        dependencyData: depData,
+        riskBreakdown: riskResult.components,
+        explanation: riskResult.explanation,
+        projectIntelligence: intelligence
+      };
+
+      setAnalysisResult(demoResult);
+
+      // Save analysis
+      saveAnalysis({
+        releaseName: demoResult.name,
+        riskScore: demoResult.riskScore,
+        riskLevel: demoResult.riskLevel,
+        findingsCount: generatedFindings.length,
+        recommendedTestsCount: tests.length,
+        releaseDecision: demoResult.releaseDecision
+      });
+
+      toast({
+        title: "Analysis Complete",
+        description: `Risk score: ${riskResult.overall}/100 - ${getReleaseDecision(riskResult.overall)}`,
+      });
+
+      setActiveTab("results");
+    } catch (error) {
+      console.error("Analysis failed:", error);
+      toast({
+        title: "Analysis Failed",
+        description: "An error occurred during analysis. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleCompare = async () => {
+    if (!zipFile || !previousZipFile) {
+      toast({
+        title: "Files Required",
+        description: "Please select both current and previous release ZIP files.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsComparing(true);
+    try {
+      const currentZipInfo = await extractZipInfo(zipFile);
+      const previousZipInfo = await extractZipInfo(previousZipFile);
+
+      const currentReleaseData: ReleaseData = {
+        name: zipFile.name,
+        files: currentZipInfo.files
+      };
+
+      const previousReleaseData: ReleaseData = {
+        name: previousZipFile.name,
+        files: previousZipInfo.files
+      };
+
+      const comparison = compareReleases(previousReleaseData, currentReleaseData);
+      setComparisonResult(comparison);
+
+      // Save comparison to history
+      saveComparisonToHistory({
+        previousReleaseName: previousZipFile.name,
+        currentReleaseName: zipFile.name,
+        previousRiskScore: 50,
+        currentRiskScore: 65,
+        riskChange: 15,
+        filesAdded: comparison.summary.added,
+        filesModified: comparison.summary.modified,
+        filesDeleted: comparison.summary.deleted,
+        releaseStatus: "Analyzed"
+      });
+
+      toast({
+        title: "Comparison Complete",
+        description: `Found ${comparison.summary.added} added, ${comparison.summary.modified} modified, ${comparison.summary.deleted} deleted files.`,
+      });
+
+      setActiveTab("comparison");
+    } catch (error) {
+      console.error("Comparison failed:", error);
+      toast({
+        title: "Comparison Failed",
+        description: "An error occurred during comparison. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsComparing(false);
+    }
+  };
+
+  const handleReset = () => {
+    setFiles([]);
+    setZipFile(null);
+    setPreviousZipFile(null);
+    setAnalysisResult(null);
+    setComparisonResult(null);
+    setActiveTab("upload");
+    toast({
+      title: "Reset Complete",
+      description: "All data has been cleared.",
+    });
+  };
+
+  const handleSaveComparisonToHistory = () => {
+    if (!comparisonResult) return;
+    
+    saveComparisonToHistory({
+      previousReleaseName: previousRelease || "Previous Release",
+      currentReleaseName: selectedRelease || "Current Release",
+      previousRiskScore: 50,
+      currentRiskScore: riskScore,
+      riskChange: riskScore - 50,
+      filesAdded: comparisonResult.summary.added,
+      filesModified: comparisonResult.summary.modified,
+      filesDeleted: comparisonResult.summary.deleted,
+      releaseStatus: releaseDecision
+    });
+
+    toast({
+      title: "Saved to History",
+      description: "Comparison has been saved to history.",
+    });
+  };
+
+  return (
+    <div className="container mx-auto p-6 max-w-7xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground mb-2">Release Analysis</h1>
+        <p className="text-muted-foreground"> Upload your release files or ZIP archive to perform AI-powered risk analysis </p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="upload">Upload</TabsTrigger>
+          <TabsTrigger value="results" disabled={!analysisResult}>Results</TabsTrigger>
+          <TabsTrigger value="comparison" disabled={!comparisonResult}>Comparison</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upload" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">Current Release</h2>
+              <UploadSection 
+                onFileSelect={handleFileSelect}
+                onZipSelect={handleZipSelect}
+              />
+              {files.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Uploaded Files</h3>
+                  {files.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 border rounded">
+                      <span className="text-sm">{file.name}</span>
+                      <span className={`text-xs px-2 py-1 rounded ${ file.status === 'ready' ? 'bg-green-100 text-green-800' : file.status === 'error' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800' }`}>
+                        {file.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">Previous Release (for comparison)</h2>
+              <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                <Layers className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground mb-4"> Upload previous release ZIP for comparison </p>
+                <Input type="file" accept=".zip" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleZipSelect(file);
+                }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <Select value={selectedRelease} onValueChange={setSelectedRelease}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select release" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="v1.0.0">v1.0.0</SelectItem>
+                  <SelectItem value="v1.1.0">v1.1.0</SelectItem>
+                  <SelectItem value="v2.0.0">v2.0.0</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={previousRelease} onValueChange={setPreviousRelease}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Previous release" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="v0.9.0">v0.9.0</SelectItem>
+                  <SelectItem value="v1.0.0">v1.0.0</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleReset}>
+                Reset
+              </Button>
+              <Button 
+                onClick={handleAnalyze} 
+                disabled={isAnalyzing || (!zipFile && files.length === 0)}
+              >
+                {isAnalyzing ? "Analyzing..." : "Analyze Release"}
+              </Button>
+              <Button 
+                onClick={handleCompare} 
+                disabled={isComparing || !zipFile || !previousZipFile}
+                variant="secondary"
+              >
+                {isComparing ? "Comparing..." : "Compare Releases"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <CodeInputCard 
+              language={language}
+              code={codeInput}
+              onLanguageChange={setLanguage}
+              onCodeChange={setCodeInput}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="results" className="space-y-6">
+          {analysisResult && (
+            <>
+              <div className="grid gap-6 lg:grid-cols-3">
+                <AnalysisResultsCard 
+                  riskScore={analysisResult.riskScore}
+                  riskLevel={analysisResult.riskLevel}
+                  releaseDecision={analysisResult.releaseDecision}
+                  explanation={analysisResult.explanation}
+                />
+                <ReleaseDecisionCard result={analysisResult} />
+                <ProjectIntelligenceCard items={projectIntelligence} />
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <FindingsCard findings={findings} />
+                <RecommendedTestsCard tests={recommendedTests} />
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <BlastRadius 
+                  blastRadius={blastRadius} 
+                  dependencyData={dependencyData} 
+                  explanation={explanation} 
+                />
+                <TestCoverageRecommendations 
+                  findings={findings} 
+                  testCoverageData={testCoverageData} 
+                />
+              </div>
+
+              {previousAnalysis && (
+                <PreviousAnalysisContext 
+                  riskScore={previousAnalysis.riskScore}
+                  riskLevel={previousAnalysis.riskLevel}
+                  findingsCount={previousAnalysis.findingsCount}
+                  recommendedTestsCount={previousAnalysis.recommendedTestsCount}
+                  releaseDecision={previousAnalysis.releaseDecision}
+                />
+              )}
+
+              {!previousAnalysis && (
+                <NoPreviousAnalysis />
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="comparison" className="space-y-6">
+          {comparisonResult && (
+            <FileComparison result={comparisonResult} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Analysis History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                View your previous analysis and comparison history.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <div className="mt-8">
+        <MadeWithDyad />
+      </div>
+    </div>
+  );
+};
+
+export default Analyze;
