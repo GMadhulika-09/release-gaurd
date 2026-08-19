@@ -6,12 +6,12 @@ export interface Finding {
     whyItMatters: string;
     potentialImpact: string;
   }
-
+  
   export interface RecommendedTest {
     type: string;
     description: string;
   }
-
+  
   export interface TestCoverageData {
     status: "GOOD" | "PARTIAL";
     changedComponents: number;
